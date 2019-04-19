@@ -174,7 +174,8 @@ class GaiaClient(object):
         :param name: The name of the object
         :param id_: The id of the object
         :param fmt: Optional format ('gpx' or 'kml')
-        :returns: The waypoint data structure
+        :returns: The waypoint data structure, or a bytes() if format
+                  is specified
         :raises: NotFound if no folder by the given name is found
         :raises: RuntimeError if more than one folder exists with the name
         """

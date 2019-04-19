@@ -391,3 +391,25 @@ class TestClientFunctional(unittest.TestCase):
         waypoint = apiclient.find(waypoints, 'title', waypoint_name)
         self.assertIn(waypoint['id'], new_folder['waypoints'])
         self.api.delete_object('folder', new_folder['id'])
+
+    def test_get_as_gpx(self):
+        test_objs = []
+        for name in ('test1', 'test2'):
+            wpt = self.api.create_object('waypoint',
+                                         util.make_waypoint(
+                                             test_name(name),
+                                             45.0, -122.0))
+            test_objs.append(wpt)
+
+        fld = self.api.create_object('folder',
+                                     util.make_folder(
+                                         test_name('folder')))
+        for obj in test_objs:
+            self.api.add_object_to_folder(fld['id'], 'waypoint', obj['id'])
+
+        gpx_data = self.api.get_object('folder', id_=fld['id'],
+                                       fmt='gpx').decode()
+        self.assertIn('gpx.xsd', gpx_data)
+        self.assertIn('test1', gpx_data)
+        self.assertIn('test2', gpx_data)
+        self._clean()
