@@ -162,4 +162,6 @@ Testing and building docs requires tox::
   $ pip install tox
   $ tox -e style,unit,doc
 
-Docs will be built and available in ``doc/build/index.html``, or you can `read them here<https://gaiagpsclient.readthedocs.io/en/latest/>`_.
+Docs will be built and available in ``doc/build/index.html``, or you can read them at RTD_.
+
+  .. _RTD: https://gaiagpsclient.readthedocs.io/en/latest/
