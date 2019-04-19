@@ -79,6 +79,7 @@ class GaiaClient(object):
         self.s = requests.Session()
         self.s.headers = {
             'User-Agent': USER_AGENT,
+            'Accept': 'application/json, text/plain, */*',
         }
         if cookies is not None:
             self.s.cookies = cookies
