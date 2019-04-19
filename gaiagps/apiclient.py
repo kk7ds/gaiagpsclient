@@ -59,7 +59,7 @@ USER_AGENT_ELEMENTS = [
 ]
 try:
     USER_AGENT_ELEMENTS.append('requests/%s' % requests.__version__)
-except:
+except Exception:
     pass
 USER_AGENT = 'https://github.com/kk7ds/gaiagpsclient (%s)' % (
     '; '.join(USER_AGENT_ELEMENTS))

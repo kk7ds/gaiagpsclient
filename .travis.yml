@@ -4,4 +4,4 @@ python:
 install:
   - pip install tox
 script:
-  - tox -eunit
+  - tox -eunit,style
