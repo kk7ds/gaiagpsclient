@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import requests
 import sys
 import pprint
@@ -22,6 +23,12 @@ class NotFound(Exception):
 def gurl(*sub):
     """Build a gaiagps.com url from components."""
     return '/'.join([BASE] + list(sub))
+
+
+def match(iterable, key, pattern):
+    """Find items with a key value matching a pattern."""
+    return [i for i in iterable
+            if re.search(pattern, i[key])]
 
 
 def find(iterable, key, value):

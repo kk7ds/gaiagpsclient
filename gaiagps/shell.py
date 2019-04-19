@@ -22,11 +22,17 @@ def folder_ops(parser, allownew=True):
 
 def remove_ops(cmds, objtype):
     remove = cmds.add_parser('remove', help='Remove a %s' % objtype)
+    remove.add_argument('--match', action='store_true',
+                        help=('Treat names as regular expressions and include '
+                              'all matches'))
     remove.add_argument('name', help='Name (or ID)', nargs='+')
 
 
 def move_ops(cmds):
     move = cmds.add_parser('move', help='Move to another folder')
+    move.add_argument('--match', action='store_true',
+                      help=('Treat names as regular expressions and include '
+                            'all matches'))
     move.add_argument('name', help='Name (or ID)', nargs='+')
     move.add_argument('destination',
                       help='Destination folder (or "/" to move to root)')
@@ -90,10 +96,24 @@ class Command(object):
             return self.client.get_object(objtype, name=name_or_id,
                                           **kwargs)
 
+    def find_objects(self, names_or_ids, objtype=None, match=False):
+        matched_objs = []
+        objs = self.client.list_objects(objtype or self.objtype)
+        for name_or_id in names_or_ids:
+            if util.is_id(name_or_id):
+                matched_objs.append(apiclient.find(objs, 'id', name_or_id))
+            elif match:
+                matched_objs.extend(apiclient.match(objs, 'title', name_or_id))
+            else:
+                matched_objs.append(apiclient.find(objs, 'title', name_or_id))
+        return matched_objs
+
     def remove(self, args):
         objtype = self.objtype
-        for name in args.name:
-            obj = self.get_object(name)
+        to_remove = self.find_objects(args.name, match=args.match)
+        for obj in to_remove:
+            self.verbose('Removing %s %r (%s)' % (
+                objtype, obj['title'], obj['id']))
             self.client.delete_object(objtype, obj['id'])
 
     def rename(self, args):
@@ -107,28 +127,24 @@ class Command(object):
         else:
             raise RuntimeError('Internal error: unable to '
                                'rename %s objects' % objtype)
+        self.verbose('Renaming %r to %r' % (args.name, args.new_name))
         if not self.client.put_object(objtype, obj):
-            print('Failed to rename %s' % objtype)
+            print('Failed to rename %r' % objtype)
             return 1
 
     def move(self, args):
         objtype = self.objtype
-        to_move = []
-        objs = self.client.list_objects(objtype)
-        for name in args.name:
-            if util.is_id(name):
-                key = 'id'
-            else:
-                key = 'title'
-            to_move.append(apiclient.find(objs, key, name))
+        to_move = self.find_objects(args.name, match=args.match)
 
         if args.destination == '/':
             for obj in to_move:
                 if obj['folder']:
+                    self.verbose('Moving %s %r (%s) to /' % (
+                        objtype, obj['title'], obj['id']))
                     self.client.remove_object_from_folder(
                         obj['folder'], objtype, obj['id'])
                 else:
-                    print('%s is already at root' % objtype.title())
+                    print('%r is already at root' % objtype.title())
         else:
             folder = self.get_object(args.destination,
                                      objtype='folder')
@@ -137,6 +153,9 @@ class Command(object):
                 return 1
 
             for obj in to_move:
+                self.verbose('Moving %s %r (%s) to %s' % (
+                    objtype, obj['title'], obj['id'],
+                    folder['properties']['name']))
                 self.client.add_object_to_folder(
                     folder['id'], objtype, obj['id'])
 
@@ -147,13 +166,13 @@ class Command(object):
         else:
             with open(args.filename, 'wb') as f:
                 f.write(data)
-            print('Wrote %s' % args.filename)
+            print('Wrote %r' % args.filename)
 
     def idlist(self, args):
         objtype = self.objtype
         items = self.client.list_objects(objtype)
         for item in items:
-            print('%-36s %s' % (item['id'], item['title']))
+            print('%-36s %r' % (item['id'], item['title']))
 
     def list(self, args):
         if args.by_id:
@@ -227,7 +246,7 @@ class Waypoint(Command):
             args.longitude = util.validate_lon(args.longitude)
             args.altitude = util.validate_alt(args.altitude)
         except ValueError as e:
-            print('Unable to add waypoint: %s' % e)
+            print('Unable to add waypoint: %r' % e)
             return 1
 
         if args.existing_folder:
@@ -236,6 +255,7 @@ class Waypoint(Command):
         else:
             folder = None
 
+        self.verbose('Creating waypoint %r' % args.name)
         wpt = self.client.create_object('waypoint',
                                         util.make_waypoint(args.name,
                                                            args.latitude,
@@ -247,11 +267,14 @@ class Waypoint(Command):
             return 1
 
         if args.new_folder:
+            self.verbose('Creating new folder %r' % args.new_folder)
             folder = self.client.create_object(
                 'folder',
                 util.make_folder(args.new_folder))
 
         if folder:
+            self.verbose('Adding waypoint %r to folder %r' % (
+                args.name, folder['properties']['name']))
             self.client.add_object_to_folder(
                 folder['id'], 'waypoint', wpt['id'])
 
