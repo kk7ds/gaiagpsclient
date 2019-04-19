@@ -27,7 +27,7 @@ def remove_ops(cmds, objtype):
 
 def move_ops(cmds):
     move = cmds.add_parser('move', help='Move to another folder')
-    move.add_argument('name', help='Name (or ID)')
+    move.add_argument('name', help='Name (or ID)', nargs='+')
     move.add_argument('destination',
                       help='Destination folder (or "/" to move to root)')
 
@@ -109,32 +109,32 @@ class Command(object):
 
     def move(self, args):
         objtype = self.objtype
-        if args.destination == '/':
-            objs = self.client.list_objects(objtype)
-            if util.is_id(args.name):
+        to_move = []
+        objs = self.client.list_objects(objtype)
+        for name in args.name:
+            if util.is_id(name):
                 key = 'id'
             else:
                 key = 'title'
-            obj = apiclient.find(objs, key, args.name)
-            if obj['folder']:
-                self.client.remove_object_from_folder(
-                    obj['folder'], objtype, obj['id'])
-            else:
-                print('%s is already at root' % objtype.title())
-        else:
-            obj = self.get_object(args.name)
-            if not obj:
-                print('No such %s found' % objtype)
-                return 1
+            to_move.append(apiclient.find(objs, key, name))
 
+        if args.destination == '/':
+            for obj in to_move:
+                if obj['folder']:
+                    self.client.remove_object_from_folder(
+                        obj['folder'], objtype, obj['id'])
+                else:
+                    print('%s is already at root' % objtype.title())
+        else:
             folder = self.get_object(args.destination,
                                      objtype='folder')
             if not folder:
                 print('No such folder found')
                 return 1
 
-            self.client.add_object_to_folder(
-                folder['id'], objtype, obj['id'])
+            for obj in to_move:
+                self.client.add_object_to_folder(
+                    folder['id'], objtype, obj['id'])
 
     def export(self, args):
         data = self.get_object(args.name, fmt=args.format)
