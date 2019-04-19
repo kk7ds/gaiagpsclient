@@ -22,7 +22,7 @@ def folder_ops(parser, allownew=True):
 
 def remove_ops(cmds, objtype):
     remove = cmds.add_parser('remove', help='Remove a %s' % objtype)
-    remove.add_argument('name', help='Name (or ID)')
+    remove.add_argument('name', help='Name (or ID)', nargs='+')
 
 
 def move_ops(cmds):
@@ -88,8 +88,9 @@ class Command(object):
 
     def remove(self, args):
         objtype = self.objtype
-        obj = self.get_object(args.name)
-        self.client.delete_object(objtype, obj['id'])
+        for name in args.name:
+            obj = self.get_object(name)
+            self.client.delete_object(objtype, obj['id'])
 
     def rename(self, args):
         objtype = self.objtype
