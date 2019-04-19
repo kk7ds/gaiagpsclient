@@ -88,10 +88,10 @@ class GaiaClient(object):
             if not all([self.username, self.password]):
                 raise RuntimeError('Session expired; '
                                    'username and password are required')
-            LOG.info('Not authenticated, logging in...')
+            LOG.debug('Not authenticated, logging in...')
             self.login()
         else:
-            LOG.info('Already logged in')
+            LOG.debug('Already logged in')
 
     def test_auth(self):
         """Test the session to see if we are successfully logged in.

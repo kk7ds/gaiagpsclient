@@ -58,8 +58,12 @@ def list_and_dump_ops(cmds):
 
 
 class Command(object):
-    def __init__(self, client):
+    def __init__(self, client, verbose=False):
         self.client = client
+        if verbose:
+            self.verbose = lambda x: print(x)
+        else:
+            self.verbose = lambda x: None
 
     @property
     def objtype(self):
@@ -477,7 +481,7 @@ def main():
                 print('Unable to access Gaia: %s' % e)
                 return 1
 
-        command = commands[args.cmd](client)
+        command = commands[args.cmd](client, verbose=args.verbose)
         try:
             return command.dispatch(parser, args)
         except (apiclient.NotFound, RuntimeError) as e:
