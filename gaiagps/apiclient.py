@@ -13,10 +13,12 @@ LOG = logging.getLogger(__name__)
 
 
 class AuthFailure(Exception):
+    """Indicates that login to gaiagps.com was not possible."""
     pass
 
 
 class NotFound(Exception):
+    """Indicates that an identified item could not be found."""
     pass
 
 
@@ -26,14 +28,23 @@ def gurl(*sub):
 
 
 def match(iterable, key, pattern):
-    """Find items with a key value matching a pattern."""
+    """Find items in iterable where ``key`` matches ``pattern``.
+
+    :param iterable: Items to search
+    :param key: The key to match
+    :param pattern: A regular expression to use for matching
+    :returns: A list of objects that match
+    """
     return [i for i in iterable
             if re.search(pattern, i[key])]
 
 
 def find(iterable, key, value):
-    """Find a key=value item in iterable.
+    """Find exactly one item in iterable for which ``key`` equals ``value``.
 
+    :param iterable: Items to search
+    :param key: The key to match
+    :param value: The value to match
     :raises NotFound: If a match is not found
     :raises RuntimeError: If multiple matches are found
     """
@@ -66,21 +77,21 @@ USER_AGENT = 'https://github.com/kk7ds/gaiagpsclient (%s)' % (
 
 
 class GaiaClient(object):
-    """A low-level client for gaiagps.com."""
+    """A low-level client for gaiagps.com.
+
+    Initialize and login (if necessary) to gaiagps.com. If
+    a cookiejar is provided and the session stored within is
+    still active, login credentials are not used.
+
+    :param username: Username for gaiagps.com
+    :param password: Password for gaiagps.com
+    :param cookies: A ``http.cookiejar.CookieJar`` or ``None``
+    :raises AuthFailure: if login fails
+    :raises RuntimeError: if session is stale and credentials are
+            not provided
+    """
 
     def __init__(self, username, password, cookies=None):
-        """
-        Initialize and login (if necessary) to gaiagps.com. If
-        a cookiejar is provided and the session stored within is
-        still active, login credentials are not used.
-
-        :param username: Username for gaiagps.com
-        :param password: Password for gaiagps.com
-        :param cookies: A http.cookiejar.CookieJar or None
-        :raises: AuthFailure if login fails
-        :raises: RuntimeError if session is stale and credentials are
-                 not provided
-        """
         self.username = username
         self.password = password
         self.s = requests.Session()
@@ -114,7 +125,7 @@ class GaiaClient(object):
         There is usually no need to call this directly, as it will be
         called from init when necessary.
 
-        :raises: AuthFailure if login is not possible
+        :raises AuthFailure: if login is not possible
         """
         r = self.s.post(gurl('login/'),
                         data={'username': self.username,
@@ -133,8 +144,11 @@ class GaiaClient(object):
     def list_objects(self, objtype):
         """Returns a list of object descriptions.
 
-        This is similar to the result of get_object(), but with object
+        This is similar to the result of :func:`~get_object()`, but with object
         references instead of full objects.
+
+        :param objtype: The type of object to be listed
+        :returns: A list of objects
         """
         assert objtype in ('folder', 'track', 'waypoint')
 
@@ -153,7 +167,7 @@ class GaiaClient(object):
         """Lookup a single object by name.
 
         This returns an object description like what you get in
-        list_objects(), filtering by name. If more than one object
+        :func:`~list_objects()`, filtering by name. If more than one object
         with the specified name is found, an error is raised.
 
         :param objtype: The type of object to be found (waypoint, track, etc)
@@ -169,15 +183,15 @@ class GaiaClient(object):
         """Return an object data structure by name or id.
 
         Fetches an object and returns the raw data structure. If
-        provided, an id takes precedence over a name.
+        provided, ``id_`` takes precedence over ``name``.
 
         :param name: The name of the object
         :param id_: The id of the object
-        :param fmt: Optional format ('gpx' or 'kml')
-        :returns: The waypoint data structure, or a bytes() if format
+        :param fmt: Optional format (``'gpx'`` or ``'kml'``)
+        :returns: The waypoint data structure, or a ``bytes()`` if format
                   is specified
-        :raises: NotFound if no folder by the given name is found
-        :raises: RuntimeError if more than one folder exists with the name
+        :raises NotFound: if no folder by the given name is found
+        :raises RuntimeError: if more than one folder exists with the name
         """
 
         if not any([name, id_]):
@@ -206,7 +220,7 @@ class GaiaClient(object):
         """Create an object.
 
         :param objtype: The type of object to create (waypoint, track, etc)
-        :oaram objdata: The exact raw object structure
+        :param objdata: The exact raw object structure
         :returns: The resulting object, if successful, else None
         """
         LOG.debug('Creating %s: %s' % (objtype, pprint.pformat(objdata)))
@@ -224,7 +238,7 @@ class GaiaClient(object):
 
         :param objtype: The type of object to be updated
         :param objdata: The exact raw object structure
-        :returns: The resulting object, if successful, else None
+        :returns: The resulting object, if successful, else ``None``
         """
         LOG.debug('Putting %s/%s: %s' % (objtype, objdata['id'],
                                          pprint.pformat(objdata)))
@@ -276,8 +290,8 @@ class GaiaClient(object):
         """Removes an object from a folder.
 
         :param folderid: The id of the folder in question
-        :param objtype: The type of the object to add
-        :param objid: The id of the object to add
+        :param objtype: The type of the object to remove
+        :param objid: The id of the object to remove
         :returns: The updated folder description
         """
 
@@ -303,7 +317,8 @@ class GaiaClient(object):
 
         :param filename: The local filename to upload
         :returns: The resulting folder object that is created to hold the
-                  contents of the file
+                  contents of the file, as you would get from
+                  :func:`~get_object`.
         """
         files = {'files': open(filename, 'rb')}
         r = self.s.post(gurl('upload/'), files=files,
