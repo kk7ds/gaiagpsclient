@@ -148,3 +148,15 @@ Here are some example common operations to demonstrate usage::
       WPT 11 Apr 2019 01:56:19 Waterfall
       WPT 11 Apr 2019 01:52:56 Trailhead
 
+
+Testing and Docs
+----------------
+
+Tests are split into unit and functional groups. Unit tests can be run in isolation; functional tests run against gaiagps.com itself and require credentials to be set in the environment to run. As functional testing has the potential to generate potentialy-unwanted load on Gaia's servers, try to avoid running those more than necessary.
+
+Testing and building docs requires tox::
+
+  $ pip install tox
+  $ tox -e style,unit,doc
+
+Docs will be built and available in ``doc/build/index.html``.
