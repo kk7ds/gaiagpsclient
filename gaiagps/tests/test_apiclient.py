@@ -1,6 +1,7 @@
 import http.cookiejar
 import mock
 import os
+import tempfile
 import unittest
 
 from gaiagps import apiclient
@@ -12,6 +13,17 @@ TEST_NAME_BASE = 'gaiagpsclient test data'
 
 def test_name(slug):
     return '%s %s' % (TEST_NAME_BASE, slug)
+
+
+SAMPLE_GPX = ''.join([
+    '<?xml version="1.0" ?><gpx creator="GaiaGPS" version="1.1" '
+    'xmlns="http://www.topografix.com/GPX/1/1" '
+    'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+    'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 '
+    'http://www.topografix.com/GPX/1/1/gpx.xsd">'
+    '<wpt lat="45.5" lon="-122.9"><ele>123</ele>'
+    '<time>2019-04-19T00:38:03Z</time><name>%s</name></wpt>'
+    '</gpx>'])
 
 
 class TestClientUnit(unittest.TestCase):
@@ -360,3 +372,22 @@ class TestClientFunctional(unittest.TestCase):
                           waypoints, 'id', test_objs['wpt1']['id'])
         wpt2 = apiclient.find(waypoints, 'id', test_objs['wpt2']['id'])
         self.api.delete_object('waypoint', wpt2['id'])
+
+    def test_upload_file(self):
+        tmpdir = tempfile.mkdtemp()
+        filename = test_name('file.gpx')
+        path = os.path.join(tmpdir, filename)
+        waypoint_name = test_name('point')
+        with open(path, 'w') as f:
+            f.write(SAMPLE_GPX % waypoint_name)
+
+        new_folder = self.api.upload_file(path)
+
+        # I don't understand the distinction between these structures
+        folders = self.api.list_objects('folder')
+        new_folder = apiclient.find(folders, 'id', new_folder['id'])
+
+        waypoints = self.api.list_objects('waypoint')
+        waypoint = apiclient.find(waypoints, 'title', waypoint_name)
+        self.assertIn(waypoint['id'], new_folder['waypoints'])
+        self.api.delete_object('folder', new_folder['id'])
