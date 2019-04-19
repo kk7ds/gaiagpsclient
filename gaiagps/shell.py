@@ -110,7 +110,11 @@ class Command(object):
         objtype = self.objtype
         if args.destination == '/':
             objs = self.client.list_objects(objtype)
-            obj = apiclient.find(objs, 'title', args.name)
+            if util.is_id(args.name):
+                key = 'id'
+            else:
+                key = 'title'
+            obj = apiclient.find(objs, key, args.name)
             if obj['folder']:
                 self.client.remove_object_from_folder(
                     obj['folder'], objtype, obj['id'])
