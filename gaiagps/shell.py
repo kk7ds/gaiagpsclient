@@ -37,6 +37,9 @@ def move_ops(cmds):
     move.add_argument('--match', action='store_true',
                       help=('Treat names as regular expressions and include '
                             'all matches'))
+    move.add_argument('--dry-run', action='store_true',
+                      help=('Do not actually move anything '
+                            '(use with --verbose)'))
     move.add_argument('name', help='Name (or ID)', nargs='+')
     move.add_argument('destination',
                       help='Destination folder (or "/" to move to root)')
@@ -168,8 +171,9 @@ class Command(object):
                 if obj['folder']:
                     self.verbose('Moving %s %r (%s) to /' % (
                         objtype, obj['title'], obj['id']))
-                    self.client.remove_object_from_folder(
-                        obj['folder'], objtype, obj['id'])
+                    if not args.dry_run:
+                        self.client.remove_object_from_folder(
+                            obj['folder'], objtype, obj['id'])
                 else:
                     print('%s %r is already at root' % (
                         objtype.title(), obj['title']))
@@ -180,8 +184,11 @@ class Command(object):
                 self.verbose('Moving %s %r (%s) to %s' % (
                     objtype, obj['title'], obj['id'],
                     folder['properties']['name']))
-                self.client.add_object_to_folder(
-                    folder['id'], objtype, obj['id'])
+                if not args.dry_run:
+                    self.client.add_object_to_folder(
+                        folder['id'], objtype, obj['id'])
+        if args.dry_run:
+            print('Dry run; no action taken')
 
     def export(self, args):
         data = self.get_object(args.name, fmt=args.format)

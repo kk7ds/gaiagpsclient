@@ -130,12 +130,16 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('subfolder', out)
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
-    def test_move(self, mock_add, verbose=False):
-        rc, out = self._run('%s waypoint move wpt1 wpt2 folder2' % (
-            verbose and '--verbose' or ''))
+    def test_move(self, mock_add, verbose=False, dry=False):
+        rc, out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
+            verbose and '--verbose' or '',
+            dry and '--dry-run' or ''))
         self.assertEqual(0, rc)
-        mock_add.assert_has_calls([mock.call('102', 'waypoint', '001'),
-                                   mock.call('102', 'waypoint', '002')])
+        if dry:
+            mock_add.assert_not_called()
+        else:
+            mock_add.assert_has_calls([mock.call('102', 'waypoint', '001'),
+                                       mock.call('102', 'waypoint', '002')])
         if verbose:
             self.assertIn('wpt1', out)
             self.assertIn('wpt2', out)
@@ -143,11 +147,16 @@ class TestShellUnit(unittest.TestCase):
             self.assertNotIn('wpt3', out)
             self.assertNotIn('folder1', out)
             self.assertNotIn('subfolder', out)
+        elif dry:
+            self.assertIn('Dry run', out)
         else:
             self.assertEqual('', out)
 
     def test_move_verbose(self):
         self.test_move(verbose=True)
+
+    def test_move_dry_run(self):
+        self.test_move(verbose=True, dry=True)
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match(self, mock_add):
