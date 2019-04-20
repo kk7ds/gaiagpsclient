@@ -81,9 +81,9 @@ class Command(object):
 
     def dispatch(self, parser, args):
         if hasattr(args, 'subcommand') and args.subcommand:
-            getattr(self, args.subcommand)(args)
+            return getattr(self, args.subcommand)(args)
         elif hasattr(self, 'default'):
-            self.default(args)
+            return self.default(args)
         else:
             parser.print_usage()
 
@@ -144,14 +144,11 @@ class Command(object):
                     self.client.remove_object_from_folder(
                         obj['folder'], objtype, obj['id'])
                 else:
-                    print('%r is already at root' % objtype.title())
+                    print('%s %r is already at root' % (
+                        objtype.title(), obj['title']))
         else:
             folder = self.get_object(args.destination,
                                      objtype='folder')
-            if not folder:
-                print('No such folder found')
-                return 1
-
             for obj in to_move:
                 self.verbose('Moving %s %r (%s) to %s' % (
                     objtype, obj['title'], obj['id'],
@@ -449,7 +446,7 @@ def cookiejar():
         jar.save()
 
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser(
         description='Command line client for gaiagps.com')
     parser.add_argument('--user', help='Gaia username')
@@ -477,7 +474,7 @@ def main():
                                   description=desctxt.strip(),
                                   help=helptxt.strip()))
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     logging.basicConfig(level=logging.WARNING)
     root_logger = logging.getLogger()
@@ -506,7 +503,7 @@ def main():
 
         command = commands[args.cmd](client, verbose=args.verbose)
         try:
-            return command.dispatch(parser, args)
+            return int(command.dispatch(parser, args) or 0)
         except (apiclient.NotFound, RuntimeError) as e:
             print(e)
             return 1
