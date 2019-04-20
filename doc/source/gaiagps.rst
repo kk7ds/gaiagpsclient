@@ -1,8 +1,5 @@
-gaiagps package
-===============
-
-Submodules
-----------
+Python API Documentation
+========================
 
 gaiagps.apiclient module
 ------------------------
@@ -16,15 +13,6 @@ gaiagps.util module
 -------------------
 
 .. automodule:: gaiagps.util
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: gaiagps
     :members:
     :undoc-members:
     :show-inheritance:

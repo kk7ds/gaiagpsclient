@@ -11,6 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   cli
+   gaiagps
 
 
 Indices and tables
