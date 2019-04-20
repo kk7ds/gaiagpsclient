@@ -194,4 +194,5 @@ items to operate on::
 
   Matching with a regular expression is very powerful, but has the
   potential to let you do a lot of damage very easily. Exercise
-  caution when using this feature.
+  caution when using this feature. When possible, use ``--dry-run`` to
+  confirm planned actions before executing.
