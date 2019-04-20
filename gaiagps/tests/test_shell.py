@@ -245,13 +245,21 @@ class TestShellUnit(unittest.TestCase):
         mock_delete.assert_called_once_with('folder', '101')
 
     @mock.patch.object(FakeClient, 'put_object')
-    def test_rename_waypoint(self, mock_put):
-        rc, out = self._run('--verbose waypoint rename wpt2 wpt7')
+    def test_rename_waypoint(self, mock_put, dry=False):
+        rc, out = self._run(
+            '--verbose waypoint rename wpt2 wpt7 %s' % (
+                dry and '--dry-run' or ''))
         self.assertEqual(0, rc)
         self.assertIn('Renaming', out)
         new_wpt = {'id': '002', 'folder': '101',
                    'properties': {'title': 'wpt7'}}
-        mock_put.assert_called_once_with('waypoint', new_wpt)
+        if dry:
+            mock_put.assert_not_called()
+        else:
+            mock_put.assert_called_once_with('waypoint', new_wpt)
+
+    def test_rename_dry_run(self):
+        self.test_rename_waypoint(dry=True)
 
     @mock.patch.object(FakeClient, 'put_object')
     def test_rename_track(self, mock_put):

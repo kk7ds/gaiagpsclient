@@ -47,6 +47,9 @@ def move_ops(cmds):
 
 def rename_ops(cmds):
     rename = cmds.add_parser('rename', help='Rename')
+    rename.add_argument('--dry-run', action='store_true',
+                        help=('Do not actually rename anything '
+                              '(use with --verbose)'))
     rename.add_argument('name', help='Current name')
     rename.add_argument('new_name', help='New name')
 
@@ -158,7 +161,9 @@ class Command(object):
             raise RuntimeError('Internal error: unable to '
                                'rename %s objects' % objtype)
         self.verbose('Renaming %r to %r' % (args.name, args.new_name))
-        if not self.client.put_object(objtype, obj):
+        if args.dry_run:
+            print('Dry run; no action taken')
+        elif not self.client.put_object(objtype, obj):
             print('Failed to rename %r' % objtype)
             return 1
 
