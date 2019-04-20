@@ -170,12 +170,20 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('\'wpt1\' is already at root', out)
 
     @mock.patch.object(FakeClient, 'delete_object')
-    def test_remove(self, mock_delete):
-        rc, out = self._run('waypoint remove wpt1 wpt2')
+    def test_remove(self, mock_delete, dry=False):
+        rc, out = self._run('waypoint remove wpt1 wpt2 %s' % (
+            dry and '--dry-run' or ''))
         self.assertEqual(0, rc)
-        self.assertEqual('', out)
-        mock_delete.assert_has_calls([mock.call('waypoint', '001'),
-                                      mock.call('waypoint', '002')])
+        if dry:
+            self.assertIn('Dry run', out)
+            mock_delete.assert_not_called()
+        else:
+            self.assertEqual('', out)
+            mock_delete.assert_has_calls([mock.call('waypoint', '001'),
+                                          mock.call('waypoint', '002')])
+
+    def test_remove_dry_run(self):
+        self.test_remove(dry=True)
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_match_verbose(self, mock_delete):

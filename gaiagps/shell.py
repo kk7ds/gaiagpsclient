@@ -25,6 +25,9 @@ def remove_ops(cmds, objtype):
     remove.add_argument('--match', action='store_true',
                         help=('Treat names as regular expressions and include '
                               'all matches'))
+    remove.add_argument('--dry-run', action='store_true',
+                        help=('Do not actually remove anything '
+                              '(use with --verbose)'))
     remove.add_argument('name', help='Name (or ID)', nargs='+')
     return remove
 
@@ -135,7 +138,10 @@ class Command(object):
                 continue
             self.verbose('Removing %s %r (%s)' % (
                 objtype, obj['title'], obj['id']))
-            self.client.delete_object(objtype, obj['id'])
+            if not args.dry_run:
+                self.client.delete_object(objtype, obj['id'])
+        if args.dry_run:
+            print('Dry run; no action taken')
 
     def rename(self, args):
         objtype = self.objtype
