@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import re
@@ -23,8 +24,14 @@ class NotFound(Exception):
 
 
 def gurl(*sub):
-    """Build a gaiagps.com url from components."""
-    return '/'.join([BASE] + list(sub))
+    """Build a gaiagps.com url from components.
+
+    Ensure that the resulting URL ends in a slash and that none
+    of the sub elements that have a slash cause duplicates.
+    """
+    return '/'.join(itertools.chain([BASE],
+                                    [x.strip('/') for x in sub],
+                                    ['']))
 
 
 def match(iterable, key, pattern):
@@ -127,7 +134,7 @@ class GaiaClient(object):
 
         :raises AuthFailure: if login is not possible
         """
-        r = self.s.post(gurl('login/'),
+        r = self.s.post(gurl('login'),
                         data={'username': self.username,
                               'password': self.password,
                               'next': '/'})
@@ -224,7 +231,7 @@ class GaiaClient(object):
         :returns: The resulting object, if successful, else None
         """
         LOG.debug('Creating %s: %s' % (objtype, pprint.pformat(objdata)))
-        r = self.s.post(gurl('api', 'objects', objtype + '/'), json=objdata)
+        r = self.s.post(gurl('api', 'objects', objtype), json=objdata)
         _logresp(r)
         if r:
             obj = r.json()
@@ -242,7 +249,7 @@ class GaiaClient(object):
         """
         LOG.debug('Putting %s/%s: %s' % (objtype, objdata['id'],
                                          pprint.pformat(objdata)))
-        r = self.s.put(gurl('api', 'objects', objtype, objdata['id'] + '/'),
+        r = self.s.put(gurl('api', 'objects', objtype, objdata['id']),
                        json=objdata)
         _logresp(r)
         if r.status_code <= 201:
@@ -321,7 +328,7 @@ class GaiaClient(object):
                   :func:`~get_object`.
         """
         files = {'files': open(filename, 'rb')}
-        r = self.s.post(gurl('upload/'), files=files,
+        r = self.s.post(gurl('upload'), files=files,
                         data={'name': os.path.basename(filename)},
                         allow_redirects=True)
         _logresp(r)

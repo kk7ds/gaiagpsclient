@@ -42,7 +42,7 @@ class TestClientUnit(unittest.TestCase):
         self.requests.post.return_value.url = '/something'
         apiclient.GaiaClient('foo', 'bar')
         self.requests.post.assert_called_once_with(
-            apiclient.gurl('login/'),
+            apiclient.gurl('login'),
             data={'username': 'foo', 'password': 'bar', 'next': '/'})
 
     @mock.patch('gaiagps.apiclient.GaiaClient.test_auth')
@@ -110,7 +110,7 @@ class TestClientUnit(unittest.TestCase):
         self.assertEqual(self.requests.post.return_value.json.return_value,
                          obj)
         self.requests.post.assert_called_once_with(
-            apiclient.gurl('api', 'objects', 'waypoint/'),
+            apiclient.gurl('api', 'objects', 'waypoint'),
             json={'name': 'foo'})
 
     def test_put_object(self):
@@ -121,7 +121,7 @@ class TestClientUnit(unittest.TestCase):
         self.assertEqual(self.requests.put.return_value.json.return_value,
                          obj)
         self.requests.put.assert_called_once_with(
-            apiclient.gurl('api', 'objects', 'waypoint', '1/'),
+            apiclient.gurl('api', 'objects', 'waypoint', '1'),
             json={'name': 'foo', 'id': '1'})
 
         self.requests.put.return_value.status_code = 202
@@ -157,7 +157,7 @@ class TestClientUnit(unittest.TestCase):
             self.assertEqual(self.requests.put.return_value.json.return_value,
                              folder)
             self.requests.put.assert_called_once_with(
-                apiclient.gurl('api', 'objects', 'folder', 'folder1/'),
+                apiclient.gurl('api', 'objects', 'folder', 'folder1'),
                 json={'id': 'folder1', 'name': 'My Folder',
                       'children': [],
                       'waypoints': ['2', 'waypoint1']})
@@ -170,7 +170,7 @@ class TestClientUnit(unittest.TestCase):
             self.assertEqual(self.requests.put.return_value.json.return_value,
                              folder)
             self.requests.put.assert_called_once_with(
-                apiclient.gurl('api', 'objects', 'folder', 'folder1/'),
+                apiclient.gurl('api', 'objects', 'folder', 'folder1'),
                 json={'id': 'folder1', 'name': 'My Folder',
                       'children': ['folder2'],
                       'waypoints': ['2', 'waypoint1']})
@@ -200,7 +200,7 @@ class TestClientUnit(unittest.TestCase):
             self.assertEqual(self.requests.put.return_value.json.return_value,
                              folder)
             self.requests.put.assert_called_once_with(
-                apiclient.gurl('api', 'objects', 'folder', 'folder1/'),
+                apiclient.gurl('api', 'objects', 'folder', 'folder1'),
                 json={'id': 'folder1', 'name': 'My Folder',
                       'children': ['folder2'],
                       'waypoints': []})
@@ -213,7 +213,7 @@ class TestClientUnit(unittest.TestCase):
             self.assertEqual(self.requests.put.return_value.json.return_value,
                              folder)
             self.requests.put.assert_called_once_with(
-                apiclient.gurl('api', 'objects', 'folder', 'folder1/'),
+                apiclient.gurl('api', 'objects', 'folder', 'folder1'),
                 json={'id': 'folder1', 'name': 'My Folder',
                       'children': [],
                       'waypoints': []})
@@ -238,11 +238,17 @@ class TestClientUnit(unittest.TestCase):
             self.assertEqual(mock_get.return_value, folder)
             mock_get.assert_called_once_with('folder', id_='newfolderid')
             self.requests.post.assert_called_once_with(
-                apiclient.gurl('upload/'),
+                apiclient.gurl('upload'),
                 files={'files': mock_open.return_value},
                 data={'name': 'foo.gpx'},
                 allow_redirects=True)
             mock_open.assert_called_once_with('path/to/foo.gpx', 'rb')
+
+    def test_gurl(self):
+        self.assertEqual('https://www.gaiagps.com/a/b/',
+                         apiclient.gurl('a', 'b'))
+        self.assertEqual('https://www.gaiagps.com/a/b/c/',
+                         apiclient.gurl('a/', '/b', '/c/'))
 
 
 class TestClientFunctional(unittest.TestCase):
