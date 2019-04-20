@@ -20,6 +20,7 @@ class FakeClient(object):
         {'id': '101', 'folder': None, 'title': 'folder1'},
         {'id': '102', 'folder': None, 'title': 'folder2'},
         {'id': '103', 'folder': '101', 'title': 'subfolder'},
+        {'id': '104', 'folder': None, 'title': 'emptyfolder'},
         ]
     WAYPOINTS = [
         {'id': '001', 'folder': None, 'title': 'wpt1'},
@@ -46,6 +47,7 @@ class FakeClient(object):
             r = []
             for f in self.FOLDERS:
                 r.append(dict(f,
+                              maps=[],
                               waypoints=[w['id'] for w in self.WAYPOINTS
                                          if w['folder'] == f['id']],
                               tracks=[t['id'] for t in self.WAYPOINTS
@@ -188,6 +190,42 @@ class TestShellUnit(unittest.TestCase):
         self.assertEqual(1, rc)
         self.assertIn('not found', out)
         mock_delete.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_folder_empty(self, mock_delete):
+        rc, out = self._run('--verbose folder remove emptyfolder')
+        self.assertEqual(0, rc)
+        self.assertIn('Removing', out)
+        mock_delete.assert_called_once_with('folder', '104')
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_folder_nonempty(self, mock_delete):
+        rc, out = self._run('--verbose folder remove folder1')
+        self.assertEqual(0, rc)
+        self.assertIn('skipping', out)
+        mock_delete.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_folder_nonempty_force(self, mock_delete):
+        rc, out = self._run('--verbose folder remove --force folder1')
+        self.assertEqual(0, rc)
+        self.assertIn('Warning', out)
+        mock_delete.assert_called_once_with('folder', '101')
+
+    @mock.patch('builtins.input')
+    @mock.patch('os.isatty', return_value=True)
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_folder_nonempty_prompt(self, mock_delete, mock_tty,
+                                           mock_input):
+        mock_input.return_value = ''
+        rc, out = self._run('--verbose folder remove folder1')
+        self.assertEqual(0, rc)
+        mock_delete.assert_not_called()
+
+        mock_input.return_value = 'y'
+        rc, out = self._run('--verbose folder remove folder1')
+        self.assertEqual(0, rc)
+        mock_delete.assert_called_once_with('folder', '101')
 
     @mock.patch.object(FakeClient, 'put_object')
     def test_rename_waypoint(self, mock_put):

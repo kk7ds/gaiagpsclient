@@ -26,6 +26,7 @@ def remove_ops(cmds, objtype):
                         help=('Treat names as regular expressions and include '
                               'all matches'))
     remove.add_argument('name', help='Name (or ID)', nargs='+')
+    return remove
 
 
 def move_ops(cmds):
@@ -108,10 +109,30 @@ class Command(object):
                 matched_objs.append(apiclient.find(objs, 'title', name_or_id))
         return matched_objs
 
+    def _confirm_recursive(self, args, obj):
+        sub_objs = ('tracks', 'waypoints', 'children', 'maps')
+        if any(obj[o] for o in sub_objs):
+            if hasattr(args, 'force') and args.force:
+                self.verbose('Warning: folder %r is not empty' % (
+                    obj['title']))
+                return True
+            elif os.isatty(sys.stdin.fileno()):
+                answer = input(
+                    'Folder %s is not empty. Remove anyway? [y/n] ' % (
+                        obj['title']))
+                return answer.strip().lower() in ('y', 'yes')
+            else:
+                print('Folder %r is not empty; skipping.' % obj['title'])
+                return False
+
+        return True
+
     def remove(self, args):
         objtype = self.objtype
         to_remove = self.find_objects(args.name, match=args.match)
         for obj in to_remove:
+            if objtype == 'folder' and not self._confirm_recursive(args, obj):
+                continue
             self.verbose('Removing %s %r (%s)' % (
                 objtype, obj['title'], obj['id']))
             self.client.delete_object(objtype, obj['id'])
@@ -311,7 +332,9 @@ class Folder(Command):
         add = cmds.add_parser('add', help='Add a folder')
         add.add_argument('name', help='Name (or ID)')
         folder_ops(add, allownew=False)
-        remove_ops(cmds, 'folder')
+        remove = remove_ops(cmds, 'folder')
+        remove.add_argument('--force', action='store_true',
+                            help='Remove even if not empty')
         move_ops(cmds)
         export_ops(cmds)
         list_and_dump_ops(cmds)
