@@ -169,7 +169,9 @@ class Command(object):
         objtype = self.objtype
         items = self.client.list_objects(objtype)
         for item in items:
-            print('%-36s %r' % (item['id'], item['title']))
+            print('%-36s %20s %r' % (item['id'],
+                                     util.datefmt(item),
+                                     item['title']))
 
     def list(self, args):
         if args.by_id:
