@@ -3,5 +3,8 @@ python:
   - "3.5"
 install:
   - pip install tox
+  - pip install coveralls
 script:
   - tox -eunit,style
+after_success:
+  - coveralls

@@ -8,6 +8,10 @@ gaiagpsclient
 .. image:: https://readthedocs.org/projects/gaiagpsclient/badge/?version=latest
     :target: https://gaiagpsclient.readthedocs.io/en/latest/?badge=latest
 
+.. image:: https://coveralls.io/repos/github/kk7ds/gaiagpsclient/badge.svg?branch=master
+    :target: https://coveralls.io/github/kk7ds/gaiagpsclient?branch=master
+
+
 A Python API and CLI client for GaiaGPS. I wrote this for myself, but it may be useful for others. Gaia does not have a published API, so this was developed by reverse engineering the browser client and thus may be incomplete or poorly behaved. It is possible to use this to put undue strain on gaiagps.com, so please be judicious with its use. This client is not supported or blessed by Gaia, so do not complain about it to them or ask them for help.
 
 Installation
