@@ -128,6 +128,9 @@ class TestUtilUnit(unittest.TestCase):
 
         fake_client = mock.MagicMock()
         fake_client.get_object.side_effect = lambda t, id_: full_folders[id_]
+        fake_client.list_objects.return_value = [{'title': 'testdata',
+                                                  'properties': {},
+                                                  'folder': ''}]
 
         tree = util.make_tree(folders)
         resolved = util.resolve_tree(fake_client, tree)
@@ -156,5 +159,6 @@ class TestUtilUnit(unittest.TestCase):
         # Check some things at the root and at the leaves for proper
         # nesting
         self.assertIn('DIR ? root1/', lines)
+        self.assertIn('WPT ? testdata', lines)
         self.assertIn('%sDIR ? subsub/' % (8 * ' '), lines)
         self.assertIn('%sTRK ? track_202' % (12 * ' '), lines)

@@ -118,6 +118,15 @@ def resolve_tree(client, folder):
         folder.clear()
         folder.update(updated)
         folder['subfolders'] = subf
+    else:
+        # This is the fake root folder
+        LOG.debug('Resolving root folder (by force)')
+        folder['properties']['waypoints'] = [
+            w for w in client.list_objects('waypoint')
+            if w['folder'] == '']
+        folder['properties']['tracks'] = [
+            t for t in client.list_objects('track')
+            if t['folder'] == '']
 
     for subfolder in folder.get('subfolders', {}).values():
         LOG.debug('Descending into %s' % subfolder['id'])
