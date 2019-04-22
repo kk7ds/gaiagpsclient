@@ -5,6 +5,7 @@ import http.cookiejar
 import logging
 import pprint
 import prettytable
+import re
 import os
 import sys
 
@@ -66,6 +67,8 @@ def list_and_dump_ops(cmds):
     list = cmds.add_parser('list', help='List')
     list.add_argument('--by-id', action='store_true',
                       help='List items by ID only (for resolving duplicates')
+    list.add_argument('--match', metavar='NAME',
+                      help='List only items matching this regular expression')
     dump = cmds.add_parser('dump', help='Raw dump of the data structure')
     dump.add_argument('name', help='Name (or ID)')
 
@@ -237,6 +240,8 @@ class Command(object):
             return i['folder_name'] + ' ' + i['title']
 
         for item in sorted(items, key=sortkey):
+            if args.match and not re.search(args.match, item['title']):
+                continue
             table.add_row([item['title'],
                            util.datefmt(item),
                            item['folder_name']])

@@ -143,6 +143,12 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('folder1', out)
         self.assertNotIn('subfolder', out)
 
+    def test_list_match(self):
+        rc, out = self._run('waypoint list --match w.*2')
+        self.assertEqual(0, rc)
+        self.assertIn('wpt2', out)
+        self.assertNotIn('wpt1', out)
+
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):
         rc, out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
