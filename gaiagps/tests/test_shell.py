@@ -28,7 +28,8 @@ class FakeClient(object):
     WAYPOINTS = [
         {'id': '001', 'folder': None, 'title': 'wpt1'},
         {'id': '002', 'folder': '101', 'title': 'wpt2'},
-        {'id': '003', 'folder': '103', 'title': 'wpt3'},
+        {'id': '003', 'folder': '103', 'title': 'wpt3',
+         'properties': {'time_created': '2015-10-21T23:29:00Z'}},
     ]
     TRACKS = [
         {'id': '201', 'folder': None, 'title': 'trk1'},
@@ -40,7 +41,7 @@ class FakeClient(object):
 
     def list_objects(self, objtype):
         def add_props(l):
-            return [dict(d, properties={}) for d in l]
+            return [dict(d, properties=d.get('properties', {})) for d in l]
 
         if objtype == 'waypoint':
             return add_props(self.WAYPOINTS)
@@ -148,6 +149,19 @@ class TestShellUnit(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertIn('wpt2', out)
         self.assertNotIn('wpt1', out)
+
+    def test_list_match_date(self):
+        rc, out = self._run('waypoint list --match-date 2019-01-01')
+        self.assertEqual(0, rc)
+        self.assertNotIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+        self.assertNotIn('wpt3', out)
+
+        rc, out = self._run('waypoint list --match-date 2015-10-21')
+        self.assertEqual(0, rc)
+        self.assertNotIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+        self.assertIn('wpt3', out)
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):

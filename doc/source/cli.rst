@@ -159,3 +159,17 @@ items to operate on::
   potential to let you do a lot of damage very easily. Exercise
   caution when using this feature. When possible, use ``--dry-run`` to
   confirm planned actions before executing.
+
+Some commands also support matching by date. This can be done by
+specifying a single date, or an inclusive date range. As an example, a
+large list of waypoints can be filtered into just a few from a trip
+with this strategy::
+
+  $ gaiagps waypoint list --match-date 2019-04-10
+  +--------------------------------+----------------------+------------------+
+  |              Name              |       Updated        |      Folder      |
+  +--------------------------------+----------------------+------------------+
+  |            Trailhead           | 10 Apr 2019 18:56:19 |                  |
+  |            Lunch Spot          | 10 Apr 2019 18:52:56 |                  |
+  |              Summit            | 10 Apr 2019 17:33:50 |                  |
+  +--------------------------------+----------------------+------------------+

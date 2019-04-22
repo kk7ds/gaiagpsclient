@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import datetime
 import getpass
 import http.cookiejar
 import logging
@@ -19,6 +20,30 @@ def folder_ops(parser, allownew=True):
     if allownew:
         parser.add_argument('--new-folder',
                             help='Add to a new folder with this name')
+
+
+class DateRange(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            fmt = '%Y-%m-%d'
+            dates = values.split(':', 1)
+            start = datetime.datetime.strptime(dates[0], fmt)
+            if len(dates) > 1:
+                # End was specified
+                end = datetime.datetime.strptime(dates[1], fmt)
+            else:
+                # No end, so re-parse start so we get another object
+                # we can mutate below
+                end = datetime.datetime.strptime(dates[0], fmt)
+
+            # End date is inclusive, so make it 23:59:59
+            end = (end +
+                   datetime.timedelta(hours=24) -
+                   datetime.timedelta(seconds=1))
+
+            setattr(namespace, self.dest, (start, end))
+        except ValueError:
+            raise argparse.ArgumentError(self, 'Invalid date format')
 
 
 def remove_ops(cmds, objtype):
@@ -69,6 +94,10 @@ def list_and_dump_ops(cmds):
                       help='List items by ID only (for resolving duplicates')
     list.add_argument('--match', metavar='NAME',
                       help='List only items matching this regular expression')
+    list.add_argument('--match-date', metavar='YYYY-MM-DD',
+                      action=DateRange,
+                      help=('Match items with this date. Specify an '
+                            'inclusive range with START:END.'))
     dump = cmds.add_parser('dump', help='Raw dump of the data structure')
     dump.add_argument('name', help='Name (or ID)')
 
@@ -215,6 +244,15 @@ class Command(object):
                                      util.datefmt(item),
                                      item['title']))
 
+    def _match_date(self, item, date_range):
+        start, end = date_range
+        item_dt = util.date_parse(item)
+        if item_dt:
+            item_dt = item_dt.replace(tzinfo=None)
+            return item_dt >= start and item_dt <= end
+        else:
+            return False
+
     def list(self, args):
         if args.by_id:
             return self.idlist(args)
@@ -241,6 +279,8 @@ class Command(object):
 
         for item in sorted(items, key=sortkey):
             if args.match and not re.search(args.match, item['title']):
+                continue
+            if args.match_date and not self._match_date(item, args.match_date):
                 continue
             table.add_row([item['title'],
                            util.datefmt(item),

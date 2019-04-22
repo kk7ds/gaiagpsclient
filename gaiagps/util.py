@@ -7,23 +7,23 @@ import tzlocal
 LOG = logging.getLogger(__name__)
 
 
-def datefmt(thing):
-    """Nicely format a thing with a datestamp.
+def date_parse(thing):
+    """Parse a local datetime from a thing with a datestamp.
 
-    This attempts to find a datestamp in an object, parse, and format
-    it for display in the local timezone.
+    This attempts to find a datestamp in an object and parse it for
+    use in the local timezone.
 
     Something like this is required::
 
       {'id': '1234', 'title': 'Foo', 'time_created': '2019-01-01T10:11:12Z'}
 
-    :param thing: A ``dict`` raw object from the API.
-    :returns: A nicely-formatted date string, or ``'?'`` if none is found
-              or is parseable
+    :param thing: A ``dict`` raw object from the API
+    :returns: A localized tz-aware :class:`datetime.datetime` or None if no
+              datestamp is found.
     """
     ds = thing.get('time_created') or thing['properties'].get('time_created')
     if not ds:
-        return '?'
+        return None
 
     if 'Z' in ds:
         dt = datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%SZ')
@@ -33,9 +33,23 @@ def datefmt(thing):
         dt = datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S')
 
     dt = pytz.utc.localize(dt)
-    localdt = dt.astimezone(tzlocal.get_localzone())
+    return dt.astimezone(tzlocal.get_localzone())
 
-    return localdt.strftime('%d %b %Y %H:%M:%S')
+
+def datefmt(thing):
+    """Nicely format a thing with a datestamp.
+
+    See :func:`~date_parse` for more information.
+
+    :param thing: A ``dict`` raw object from the API.
+    :returns: A nicely-formatted date string, or ``'?'`` if none is found
+              or is parseable
+    """
+    localdt = date_parse(thing)
+    if localdt:
+        return localdt.strftime('%d %b %Y %H:%M:%S')
+    else:
+        return '?'
 
 
 def make_waypoint(name, lat, lon, alt=0):
