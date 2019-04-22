@@ -273,6 +273,9 @@ class Waypoint(Command):
         add.add_argument('longitude', help='Longitude (in decimal degrees)')
         add.add_argument('altitude', help='Altitude (in meters', default=0,
                          nargs='?')
+        add.add_argument('--dry-run', action='store_true',
+                         help=('Do not actually add anything '
+                               '(use with --verbose)'))
         folder_ops(add)
         remove_ops(cmds, 'waypoint')
         move_ops(cmds)
@@ -299,11 +302,14 @@ class Waypoint(Command):
             folder = None
 
         self.verbose('Creating waypoint %r' % args.name)
-        wpt = self.client.create_object('waypoint',
-                                        util.make_waypoint(args.name,
-                                                           args.latitude,
-                                                           args.longitude,
-                                                           args.altitude))
+        if not args.dry_run:
+            wpt = self.client.create_object('waypoint',
+                                            util.make_waypoint(args.name,
+                                                               args.latitude,
+                                                               args.longitude,
+                                                               args.altitude))
+        else:
+            wpt = {'id': 'dry-run'}
 
         if not wpt:
             print('Failed to create waypoint')
@@ -311,15 +317,21 @@ class Waypoint(Command):
 
         if args.new_folder:
             self.verbose('Creating new folder %r' % args.new_folder)
-            folder = self.client.create_object(
-                'folder',
-                util.make_folder(args.new_folder))
-
+            if not args.dry_run:
+                folder = self.client.create_object(
+                    'folder',
+                    util.make_folder(args.new_folder))
+            else:
+                folder = {'properties': {'name': args.new_folder}}
         if folder:
             self.verbose('Adding waypoint %r to folder %r' % (
                 args.name, folder['properties']['name']))
-            self.client.add_object_to_folder(
-                folder['id'], 'waypoint', wpt['id'])
+            if not args.dry_run:
+                self.client.add_object_to_folder(
+                    folder['id'], 'waypoint', wpt['id'])
+
+        if args.dry_run:
+            print('Dry run; no action taken')
 
     def coords(self, args):
         wpt = self.get_object(args.name)
@@ -354,6 +366,9 @@ class Folder(Command):
         cmds = parser.add_subparsers(dest='subcommand')
         add = cmds.add_parser('add', help='Add a folder')
         add.add_argument('name', help='Name (or ID)')
+        add.add_argument('--dry-run', action='store_true',
+                         help=('Do not actually add anything '
+                               '(use with --verbose)'))
         folder_ops(add, allownew=False)
         remove = remove_ops(cmds, 'folder')
         remove.add_argument('--force', action='store_true',
@@ -369,18 +384,30 @@ class Folder(Command):
         else:
             folder = None
 
-        new_folder = self.client.create_object('folder',
-                                               util.make_folder(args.name))
+        self.verbose('Creating folder %r' % args.name)
+        if not args.dry_run:
+            new_folder = self.client.create_object('folder',
+                                                   util.make_folder(args.name))
+        else:
+            new_folder = {'id': 'dry-run'}
         if not new_folder:
             print('Failed to add folder')
             return 1
 
         if folder:
-            if not self.client.add_object_to_folder(folder['id'], 'folder',
-                                                    new_folder['id']):
-                print('Created folder, but failed to add it to '
-                      'existing folder')
-                return 1
+            self.verbose('Adding folder %r to folder %r' % (
+                args.name, args.existing_folder))
+            if not args.dry_run:
+                updated = self.client.add_object_to_folder(folder['id'],
+                                                           'folder',
+                                                           new_folder['id'])
+                if not updated:
+                    print('Created folder, but failed to add it to '
+                          'existing folder')
+                    return 1
+
+        if args.dry_run:
+            print('Dry run; no action taken')
 
 
 class Test(Command):

@@ -306,6 +306,28 @@ class TestShellUnit(unittest.TestCase):
             util.make_waypoint('foo', 1.5, 2.6, 0))
 
     @mock.patch.object(FakeClient, 'create_object')
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_add_waypoint_dry_run(self, mock_add, mock_create):
+        rc, out = self._run('waypoint add --dry-run test 1 2')
+        self.assertEqual(0, rc)
+        self.assertIn('Dry run', out)
+        mock_create.assert_not_called()
+        mock_add.assert_not_called()
+
+        rc, out = self._run('waypoint add --dry-run --new-folder foo test 1 2')
+        self.assertEqual(0, rc)
+        self.assertIn('Dry run', out)
+        mock_create.assert_not_called()
+        mock_add.assert_not_called()
+
+        rc, out = self._run('waypoint add --dry-run --existing-folder folder1 '
+                            'test 1 2')
+        self.assertEqual(0, rc)
+        self.assertIn('Dry run', out)
+        mock_create.assert_not_called()
+        mock_add.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint_with_altitude(self, mock_create):
         rc, out = self._run('waypoint add foo 1.5 2.6 3')
         self.assertEqual(0, rc)
@@ -376,6 +398,22 @@ class TestShellUnit(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertEqual('', out)
         fake_create.assert_called_once_with('folder', util.make_folder('foo'))
+
+    @mock.patch.object(FakeClient, 'create_object')
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_add_folder_dry_run(self, fake_add, fake_create):
+        rc, out = self._run('folder add --dry-run foo')
+        self.assertEqual(0, rc)
+        self.assertIn('Dry run', out)
+        fake_create.assert_not_called()
+        fake_add.assert_not_called()
+
+        rc, out = self._run('folder add --dry-run --existing-folder folder1 '
+                            'foo')
+        self.assertEqual(0, rc)
+        self.assertIn('Dry run', out)
+        fake_create.assert_not_called()
+        fake_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
