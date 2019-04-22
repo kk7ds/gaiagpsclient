@@ -163,6 +163,18 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('wpt2', out)
         self.assertIn('wpt3', out)
 
+        rc, out = self._run('waypoint list --match-date 2015-10-21:2015-10-22')
+        self.assertEqual(0, rc)
+        self.assertNotIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+        self.assertIn('wpt3', out)
+
+        rc, out = self._run('waypoint list --match-date foo')
+        self.assertEqual(2, rc)
+
+        rc, out = self._run('waypoint list --match-date 2015-10-21:foo')
+        self.assertEqual(2, rc)
+
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):
         rc, out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
