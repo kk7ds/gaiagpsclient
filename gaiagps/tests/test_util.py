@@ -1,16 +1,21 @@
 import copy
 import mock
+import pytz
 import unittest
 
 from gaiagps import util
 
 
 class TestUtilUnit(unittest.TestCase):
-    def test_datefmt(self):
-        expected = '21 Oct 2015 04:00:00'
-        formats = ['2015-10-21T04:00:00Z',
-                   '2015-10-21T04:00:00.00',
-                   '2015-10-21T04:00:00']
+    @mock.patch('tzlocal.get_localzone')
+    def test_datefmt(self, mock_get_localzone):
+        hill_valley = pytz.timezone('America/Los_Angeles')
+        mock_get_localzone.return_value = hill_valley
+
+        expected = '21 Oct 2015 16:29:00'
+        formats = ['2015-10-21T23:29:00Z',
+                   '2015-10-21T23:29:00.00',
+                   '2015-10-21T23:29:00']
         for i in formats:
             self.assertEqual(expected,
                              util.datefmt({'time_created': i}))

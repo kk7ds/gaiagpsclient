@@ -1,6 +1,8 @@
 import datetime
 import logging
+import pytz
 import string
+import tzlocal
 
 LOG = logging.getLogger(__name__)
 
@@ -9,7 +11,9 @@ def datefmt(thing):
     """Nicely format a thing with a datestamp.
 
     This attempts to find a datestamp in an object, parse, and format
-    it for display. Something like this is required::
+    it for display in the local timezone.
+
+    Something like this is required::
 
       {'id': '1234', 'title': 'Foo', 'time_created': '2019-01-01T10:11:12Z'}
 
@@ -28,7 +32,10 @@ def datefmt(thing):
     else:
         dt = datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S')
 
-    return dt.strftime('%d %b %Y %H:%M:%S')
+    dt = pytz.utc.localize(dt)
+    localdt = dt.astimezone(tzlocal.get_localzone())
+
+    return localdt.strftime('%d %b %Y %H:%M:%S')
 
 
 def make_waypoint(name, lat, lon, alt=0):
