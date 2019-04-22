@@ -517,7 +517,10 @@ def main(args=None):
                                   description=desctxt.strip(),
                                   help=helptxt.strip()))
 
-    args = parser.parse_args(args)
+    try:
+        args = parser.parse_args(args)
+    except SystemExit as e:
+        return int(str(e))
 
     logging.basicConfig(level=logging.WARNING)
     root_logger = logging.getLogger()
