@@ -1,4 +1,7 @@
+import contextlib
+import copy
 import mock
+import shlex
 import unittest
 import io
 
@@ -50,7 +53,7 @@ class FakeClient(object):
                               maps=[],
                               waypoints=[w['id'] for w in self.WAYPOINTS
                                          if w['folder'] == f['id']],
-                              tracks=[t['id'] for t in self.WAYPOINTS
+                              tracks=[t['id'] for t in self.TRACKS
                                       if t['folder'] == f['id']],
                               children=[f['id'] for f in self.FOLDERS
                                         if f['folder'] == f['id']]))
@@ -58,7 +61,7 @@ class FakeClient(object):
         else:
             raise Exception('Invalid type %s' % objtype)
 
-    def get_object(self, objtype, name=None, id_=None):
+    def get_object(self, objtype, name=None, id_=None, fmt=None):
         if name:
             key = 'title'
             value = name
@@ -68,6 +71,10 @@ class FakeClient(object):
 
         lst = getattr(self, objtype.upper() + 'S')
         obj = dict(apiclient.find(lst, key, value))
+
+        if fmt is not None:
+            return 'object %s format %s' % (obj['id'], fmt)
+
         key = 'name' if objtype == 'folder' else 'title'
         obj['properties'] = {key: obj.pop('title')}
         return obj
@@ -87,15 +94,22 @@ class FakeClient(object):
     def create_object(self, objtype, objdata):
         raise NotImplementedError('Mock me')
 
+    def upload_file(self, filename):
+        raise NotImplementedError('Mock me')
 
+
+@contextlib.contextmanager
+def fake_cookiejar():
+    yield None
+
+
+@mock.patch('gaiagps.shell.cookiejar', new=fake_cookiejar)
 @mock.patch.object(apiclient, 'GaiaClient', new=FakeClient)
 class TestShellUnit(unittest.TestCase):
     def _run(self, cmdline):
-        # NB: cmdline must have no quoted strings that include spaces
-        # for this to work
         out = FakeOutput()
         with mock.patch.multiple('sys', stdout=out, stderr=out, stdin=out):
-            rc = shell.main(cmdline.split())
+            rc = shell.main(shlex.split(cmdline))
         print(out.getvalue())
         return rc, out.getvalue()
 
@@ -343,3 +357,168 @@ class TestShellUnit(unittest.TestCase):
         rc, out = self._run('waypoint add --existing-folder bar foo 1.5 2.6')
         self.assertEqual(1, rc)
         self.assertIn('not found', out)
+
+    @mock.patch.object(FakeClient, 'upload_file')
+    def test_upload(self, mock_upload):
+        rc, out = self._run('upload foo.gpx')
+        self.assertEqual(0, rc)
+        mock_upload.assert_called_once_with('foo.gpx')
+
+    @mock.patch.object(FakeClient, 'create_object')
+    def test_add_folder(self, fake_create):
+        rc, out = self._run('folder add foo')
+        self.assertEqual(0, rc)
+        self.assertEqual('', out)
+        fake_create.assert_called_once_with('folder', util.make_folder('foo'))
+
+    @mock.patch.object(FakeClient, 'create_object')
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_add_folder_to_existing(self, fake_add, fake_create):
+        fake_create.return_value = {'id': '105'}
+        rc, out = self._run('folder add --existing-folder folder1 foo')
+        self.assertEqual(0, rc)
+        self.assertEqual('', out)
+        fake_create.assert_called_once_with('folder', util.make_folder('foo'))
+        fake_add.assert_called_once_with('101', 'folder', '105')
+
+    @mock.patch.object(FakeClient, 'create_object')
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_add_folder_to_existing_fail(self, fake_add, fake_create):
+        fake_create.return_value = {'id': '105'}
+        fake_add.return_value = None
+        rc, out = self._run('folder add --existing-folder folder1 foo')
+        self.assertEqual(1, rc)
+        self.assertIn('failed to add', out)
+        fake_create.assert_called_once_with('folder', util.make_folder('foo'))
+
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_upload_existing_folder(self, mock_delete, mock_put, mock_upload):
+        mock_upload.return_value = {'id': '105', 'properties': {
+            'name': 'foo.gpx'}}
+
+        folders_copy = copy.deepcopy(FakeClient.FOLDERS)
+        folders_copy.append({'id': '105',
+                             'title': 'foo.gpx',
+                             'folder': None,
+                             'properties': {}})
+
+        waypoints_copy = copy.deepcopy(FakeClient.WAYPOINTS)
+        waypoints_copy.append({'id': '010', 'folder': '105', 'title': 'wpt8'})
+        waypoints_copy.append({'id': '011', 'folder': '105', 'title': 'wpt9'})
+
+        tracks_copy = copy.deepcopy(FakeClient.TRACKS)
+        tracks_copy.append({'id': '210', 'folder': '105', 'title': 'trk8'})
+        tracks_copy.append({'id': '211', 'folder': '105', 'title': 'trk9'})
+
+        with mock.patch.multiple(FakeClient,
+                                 FOLDERS=folders_copy,
+                                 WAYPOINTS=waypoints_copy,
+                                 TRACKS=tracks_copy):
+            rc, out = self._run('upload --existing-folder folder1 foo.gpx')
+
+        self.assertEqual(0, rc)
+
+        expected = copy.deepcopy(FakeClient.FOLDERS[0])
+        expected['children'] = []
+        expected['maps'] = []
+        expected['waypoints'] = ['002', '010', '011']
+        expected['tracks'] = ['210', '211']
+        mock_put.assert_called_once_with('folder', expected)
+        mock_delete.assert_called_once_with('folder', '105')
+
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch.object(FakeClient, 'delete_object')
+    @mock.patch.object(FakeClient, 'create_object')
+    def test_upload_new_folder(self, mock_create, mock_delete, mock_put,
+                               mock_upload):
+        mock_upload.return_value = {'id': '105', 'properties': {
+            'name': 'foo.gpx'}}
+
+        folders_copy = copy.deepcopy(FakeClient.FOLDERS)
+        folders_copy.append({'id': '105',
+                             'title': 'foo.gpx',
+                             'folder': None,
+                             'properties': {}})
+        folders_copy.append({'id': '106',
+                             'title': 'newfolder',
+                             'folder': None,
+                             'properties': {'name': 'newfolder'}})
+
+        mock_create.return_value = folders_copy[-1]
+
+        waypoints_copy = copy.deepcopy(FakeClient.WAYPOINTS)
+        waypoints_copy.append({'id': '010', 'folder': '105', 'title': 'wpt8'})
+        waypoints_copy.append({'id': '011', 'folder': '105', 'title': 'wpt9'})
+
+        tracks_copy = copy.deepcopy(FakeClient.TRACKS)
+        tracks_copy.append({'id': '210', 'folder': '105', 'title': 'trk8'})
+        tracks_copy.append({'id': '211', 'folder': '105', 'title': 'trk9'})
+
+        with mock.patch.multiple(FakeClient,
+                                 FOLDERS=folders_copy,
+                                 WAYPOINTS=waypoints_copy,
+                                 TRACKS=tracks_copy):
+            rc, out = self._run('upload --new-folder newfolder foo.gpx')
+
+        self.assertEqual(0, rc)
+
+        expected = copy.deepcopy(folders_copy[-1])
+        expected['children'] = []
+        expected['maps'] = []
+        expected['waypoints'] = ['010', '011']
+        expected['tracks'] = ['210', '211']
+        mock_put.assert_called_once_with('folder', expected)
+        mock_delete.assert_called_once_with('folder', '105')
+
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch.object(FakeClient, 'create_object')
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_upload_new_folder_create_fail(self, mock_delete, mock_create,
+                                           mock_upload):
+        mock_create.return_value = None
+        rc, out = self._run('upload --new-folder foo foo.gpx')
+        self.assertEqual(1, rc)
+        self.assertIn('failed to create folder', out)
+        mock_delete.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_upload_with_folder_move_fail(self, mock_delete, mock_put,
+                                          mock_upload):
+        mock_upload.return_value = {'id': '102',  # re-use to avoid mocks
+                                    'properties': {
+                                        'name': 'foo.gpx',
+                                    }}
+        mock_put.return_value = None
+        rc, out = self._run('upload --existing-folder folder1 foo.gpx')
+        self.assertEqual(1, rc)
+        self.assertIn('Failed to move', out)
+        mock_delete.assert_not_called()
+
+    @mock.patch('builtins.open')
+    def test_export(self, mock_open):
+        rc, out = self._run('waypoint export wpt1 foo.gpx')
+        self.assertEqual(0, rc)
+        self.assertIn('Wrote \'foo.gpx\'', out)
+        mock_open.assert_called_once_with('foo.gpx', 'wb')
+        fake_file = mock_open.return_value.__enter__.return_value
+        fake_file.write.assert_called_once_with('object 001 format gpx')
+
+        rc, out = self._run('folder export folder1 foo.gpx')
+        self.assertEqual(0, rc)
+        self.assertIn('Wrote \'foo.gpx\'', out)
+
+        rc, out = self._run('track export trk1 foo.gpx')
+        self.assertEqual(0, rc)
+        self.assertIn('Wrote \'foo.gpx\'', out)
+
+        rc, out = self._run('folder export folder1 --format kml foo.kml')
+        self.assertEqual(0, rc)
+        self.assertIn('Wrote \'foo.kml\'', out)
+
+        rc, out = self._run('folder export folder1 --format jpg foo')
+        self.assertEqual(2, rc)

@@ -467,6 +467,7 @@ class Upload(Command):
                       'upload folder %s to requested folder %s' % (
                           new_folder['properties']['name'],
                           dst_folder['properties']['name']))
+                return 1
             log.info('Deleting temporary folder %s' % (
                 new_folder['properties']['name']))
             self.client.delete_object('folder', new_folder['id'])
