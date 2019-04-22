@@ -11,7 +11,7 @@ from gaiagps import util
 TEST_NAME_BASE = 'gaiagpsclient test data'
 
 
-def test_name(slug):
+def _test_name(slug):
     return '%s %s' % (TEST_NAME_BASE, slug)
 
 
@@ -292,7 +292,7 @@ class TestClientFunctional(unittest.TestCase):
         self.assertTrue(self.api.test_auth())
 
     def test_create_delete_folder(self):
-        name = test_name('folder')
+        name = _test_name('folder')
         folder = self.api.create_object('folder', util.make_folder(name))
         self.assertIn('id', folder)
         self.assertEqual(name, folder['properties']['name'])
@@ -303,7 +303,7 @@ class TestClientFunctional(unittest.TestCase):
         self._clean()
 
     def test_create_waypoint(self):
-        name = test_name('waypoint')
+        name = _test_name('waypoint')
         wpt = self.api.create_object('waypoint',
                                      util.make_waypoint(name, 45.0, -122.0))
         self.assertIn('id', wpt)
@@ -319,12 +319,12 @@ class TestClientFunctional(unittest.TestCase):
         for i, name in enumerate(['wpt1', 'wpt2']):
             wpt = self.api.create_object('waypoint',
                                          util.make_waypoint(
-                                             test_name(name),
+                                             _test_name(name),
                                              45.0 + i, -122.0 - i))
             test_objs[name] = wpt
         for name in ('folder', 'subfolder'):
             fld = self.api.create_object('folder',
-                                         util.make_folder(test_name(name)))
+                                         util.make_folder(_test_name(name)))
             test_objs[name] = fld
 
         self.api.add_object_to_folder(test_objs['folder']['id'],
@@ -381,9 +381,9 @@ class TestClientFunctional(unittest.TestCase):
 
     def test_upload_file(self):
         tmpdir = tempfile.mkdtemp()
-        filename = test_name('file.gpx')
+        filename = _test_name('file.gpx')
         path = os.path.join(tmpdir, filename)
-        waypoint_name = test_name('point')
+        waypoint_name = _test_name('point')
         with open(path, 'w') as f:
             f.write(SAMPLE_GPX % waypoint_name)
 
@@ -403,13 +403,13 @@ class TestClientFunctional(unittest.TestCase):
         for name in ('test1', 'test2'):
             wpt = self.api.create_object('waypoint',
                                          util.make_waypoint(
-                                             test_name(name),
+                                             _test_name(name),
                                              45.0, -122.0))
             test_objs.append(wpt)
 
         fld = self.api.create_object('folder',
                                      util.make_folder(
-                                         test_name('folder')))
+                                         _test_name('folder')))
         for obj in test_objs:
             self.api.add_object_to_folder(fld['id'], 'waypoint', obj['id'])
 
