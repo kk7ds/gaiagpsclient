@@ -5,29 +5,9 @@ Overview
 --------
 
 Assuming a normal install, the command-line client is called ``gaiagps`` and is self-documenting. For
-example, this gives an overview of global options and the top-level commands::
+example, this gives an overview of global options and the top-level commands:
 
-  $ gaiagps --help
-  usage: gaiagps [-h] [--user USER] [--pass PASS] [--debug] [--verbose]
-                 {waypoint,folder,test,tree,track,upload} ...
-
-  Command line client for gaiagps.com
-
-  positional arguments:
-    {waypoint,folder,test,tree,track,upload}
-      waypoint            Manage waypoints
-      folder              Manage folders
-      test                Test access to Gaia
-      tree                Display all data in tree format
-      track               Manage tracks
-      upload              Upload an entire file of tracks and/or waypoints
-
-  optional arguments:
-    -h, --help            show this help message and exit
-    --user USER           Gaia username
-    --pass PASS           Gaia password (prompt if unspecified)
-    --debug               Enable debug output
-    --verbose             Enable verbose output
+.. command-output:: gaiagps --help
 
 The client attempts to login to gaiagps.com as infrequently as possible and stores session information
 to reduce the frequency of having to provide credentials. However, the first time user will have to login
@@ -57,26 +37,9 @@ etc::
 For the primary data types that Gaia stores, the ``waypoint``,
 ``track``, and ``folder`` commands provide the bulk of the
 functionality of the utility. Each command has its own ``--help``
-output, which tells you what you can do with each thing. For example::
+output, which tells you what you can do with each thing. For example:
 
-  $ gaiagps folder --help
-  usage: gaiagps folder [-h] {add,remove,move,export,list,dump,url} ...
-
-  This command allows you to take action on folders, such as adding, removing,
-  and moving them.
-
-  positional arguments:
-    {add,remove,move,export,list,dump,url}
-      add                 Add a folder
-      remove              Remove a folder
-      move                Move to another folder
-      export              Export to file
-      list                List
-      dump                Raw dump of the data structure
-      url                 Show direct browser-suitable URL
-
-  optional arguments:
-    -h, --help            show this help message and exit
+.. command-output:: gaiagps folder --help
 
 Folder Organization
 -------------------
