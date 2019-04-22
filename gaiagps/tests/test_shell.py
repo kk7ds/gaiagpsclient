@@ -211,6 +211,26 @@ class TestShellUnit(unittest.TestCase):
         mock_add.assert_has_calls([mock.call('102', 'waypoint', '002')])
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_move_match_date(self, mock_add):
+        rc, out = self._run('waypoint move --match-date 2015-10-21 folder2')
+        self.assertEqual(0, rc)
+        mock_add.assert_called_once_with('102', 'waypoint', '003')
+
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_move_match_none(self, mock_add):
+        rc, out = self._run('waypoint move --match-date 2019-01-01 folder2')
+        self.assertEqual(0, rc)
+        self.assertIn('', out)
+        mock_add.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_move_match_ambiguous(self, mock_add):
+        rc, out = self._run('waypoint move folder2')
+        self.assertEqual(1, rc)
+        self.assertIn('Specify', out)
+        mock_add.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_to_nonexistent_folder(self, mock_add):
         rc, out = self._run('waypoint move wpt1 wpt2 foobar')
         self.assertEqual(1, rc)

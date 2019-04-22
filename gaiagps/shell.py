@@ -14,6 +14,10 @@ from gaiagps import apiclient
 from gaiagps import util
 
 
+class _Safety(Exception):
+    pass
+
+
 def folder_ops(parser, allownew=True):
     parser.add_argument('--existing-folder',
                         help='Add to existing folder with this name')
@@ -63,10 +67,14 @@ def move_ops(cmds):
     move.add_argument('--match', action='store_true',
                       help=('Treat names as regular expressions and include '
                             'all matches'))
+    move.add_argument('--match-date', metavar='YYYY-MM-DD',
+                      action=DateRange,
+                      help=('Match items with this date. Specify an '
+                            'inclusive range with START:END.'))
     move.add_argument('--dry-run', action='store_true',
                       help=('Do not actually move anything '
                             '(use with --verbose)'))
-    move.add_argument('name', help='Name (or ID)', nargs='+')
+    move.add_argument('name', help='Name (or ID)', nargs='*')
     move.add_argument('destination',
                       help='Destination folder (or "/" to move to root)')
 
@@ -138,16 +146,31 @@ class Command(object):
             return self.client.get_object(objtype, name=name_or_id,
                                           **kwargs)
 
-    def find_objects(self, names_or_ids, objtype=None, match=False):
+    def find_objects(self, names_or_ids, objtype=None, match=False,
+                     date_range=None):
         matched_objs = []
         objs = self.client.list_objects(objtype or self.objtype)
-        for name_or_id in names_or_ids:
-            if util.is_id(name_or_id):
-                matched_objs.append(apiclient.find(objs, 'id', name_or_id))
-            elif match:
-                matched_objs.extend(apiclient.match(objs, 'title', name_or_id))
-            else:
-                matched_objs.append(apiclient.find(objs, 'title', name_or_id))
+        if names_or_ids:
+            for name_or_id in names_or_ids:
+                if util.is_id(name_or_id):
+                    matched_objs.append(apiclient.find(objs, 'id', name_or_id))
+                elif match:
+                    matched_objs.extend(apiclient.match(objs, 'title',
+                                                        name_or_id))
+                else:
+                    matched_objs.append(apiclient.find(objs, 'title',
+                                                       name_or_id))
+        else:
+            matched_objs = objs
+
+        if date_range:
+            matched_objs = [x for x in matched_objs
+                            if self._match_date(x, date_range)]
+
+        if not names_or_ids and len(matched_objs) == len(objs):
+            # Refuse to find all objects because no criteria was specified
+            raise _Safety()
+
         return matched_objs
 
     def _confirm_recursive(self, args, obj):
@@ -201,7 +224,16 @@ class Command(object):
 
     def move(self, args):
         objtype = self.objtype
-        to_move = self.find_objects(args.name, match=args.match)
+        try:
+            to_move = self.find_objects(args.name, match=args.match,
+                                        date_range=args.match_date)
+        except _Safety:
+            print('Specify name(s) of objects to move or filter criteria')
+            return 1
+
+        if not to_move:
+            self.verbose('No items matched criteria')
+            return
 
         if args.destination == '/':
             for obj in to_move:
