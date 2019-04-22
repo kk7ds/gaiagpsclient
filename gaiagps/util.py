@@ -215,7 +215,7 @@ def validate_lon(lon):
 
 
 def validate_alt(alt):
-    """Validate and normalize a latitude
+    """Validate and normalize an altitude
 
     Only meters are supported
 
