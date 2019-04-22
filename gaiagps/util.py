@@ -81,8 +81,8 @@ def make_tree(folders):
     root = {
         'properties': {
             'name': '/',
-            'waypoints': {},
-            'tracks': {},
+            'waypoints': [],
+            'tracks': [],
         },
     }
 
