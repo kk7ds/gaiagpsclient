@@ -17,13 +17,13 @@ A Python API and CLI client for GaiaGPS. I wrote this for myself, but it may be 
 Installation
 ------------
 
-On a modern Linux (and MacOS with python3 from brew), something like this should work:
+For complete instructions, see the `installation docs <https://gaiagpsclient.readthedocs.io/en/latest/install.html>`_. For advanced users, the quickstart is:
 
 .. code-block:: shell
 
   $ git clone https://github.com/kk7ds/gaiagpsclient
   $ cd gaiagpsclient
-  $ python setup.py install
+  $ python3 setup.py install
 
 CLI Usage
 ---------
