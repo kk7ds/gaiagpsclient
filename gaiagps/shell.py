@@ -50,6 +50,17 @@ class DateRange(argparse.Action):
             raise argparse.ArgumentError(self, 'Invalid date format')
 
 
+class FuzzyBoolean(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values and values.lower() in ['y', 'yes', 't', 'true']:
+            setattr(namespace, self.dest, True)
+        elif values and values.lower() in ['n', 'no', 'f', 'false']:
+            setattr(namespace, self.dest, False)
+        else:
+            raise argparse.ArgumentError(
+                self, 'Invalid value for %s: must be "yes" or "no"' % values)
+
+
 def remove_ops(cmds, objtype):
     remove = cmds.add_parser('remove', help='Remove a %s' % objtype)
     remove.add_argument('--match', action='store_true',
@@ -106,6 +117,8 @@ def list_and_dump_ops(cmds):
                       action=DateRange,
                       help=('Match items with this date. Specify an '
                             'inclusive range with START:END.'))
+    list.add_argument('--archived', action=FuzzyBoolean,
+                      help='Match items with archived state ("yes" or "no")')
     dump = cmds.add_parser('dump', help='Raw dump of the data structure')
     dump.add_argument('name', help='Name (or ID)')
 
@@ -298,7 +311,18 @@ class Command(object):
                                 for f in self.client.list_objects('folder')})
             return folders[ident]
 
-        items = self.client.list_objects(objtype)
+        if args.archived is not None:
+            show_archived = args.archived
+            only_archived = show_archived
+        else:
+            show_archived = True
+            only_archived = False
+
+        if show_archived is None:
+            print('Specify "yes" or "no" for --archived')
+            return 1
+
+        items = self.client.list_objects(objtype, archived=show_archived)
         for item in items:
             folder = (item['folder'] and
                       get_folder(item['folder'])['title'] or '')
@@ -313,6 +337,8 @@ class Command(object):
             if args.match and not re.search(args.match, item['title']):
                 continue
             if args.match_date and not self._match_date(item, args.match_date):
+                continue
+            if only_archived and not item['deleted']:
                 continue
             table.add_row([item['title'],
                            util.datefmt(item),

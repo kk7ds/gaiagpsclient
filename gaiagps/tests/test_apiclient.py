@@ -250,6 +250,28 @@ class TestClientUnit(unittest.TestCase):
         self.assertEqual('https://www.gaiagps.com/a/b/c/',
                          apiclient.gurl('a/', '/b', '/c/'))
 
+    def test_list_objects(self):
+        api = self.get_api()
+        expected_params = {
+            'count': '5000', 'page': '1',
+            'routepoints': 'false',
+            'show_archived': 'true',
+            'show_filed': 'true',
+            'sort_direction': 'desc',
+            'sort_field': 'create_date',
+            }
+        api.list_objects('waypoint')
+        self.requests.get.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            params=expected_params)
+        self.requests.get.reset_mock()
+
+        expected_params['show_archived'] = 'false'
+        api.list_objects('waypoint', archived=False)
+        self.requests.get.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            params=expected_params)
+
 
 class TestClientFunctional(unittest.TestCase):
     @classmethod

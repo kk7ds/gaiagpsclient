@@ -148,7 +148,7 @@ class GaiaClient(object):
 
         LOG.info('Login successful')
 
-    def list_objects(self, objtype):
+    def list_objects(self, objtype, archived=True):
         """Returns a list of object descriptions.
 
         This is similar to the result of :func:`~get_object()`, but with object
@@ -163,7 +163,7 @@ class GaiaClient(object):
                        params={
                            'count': '5000', 'page': '1',
                            'routepoints': 'false',
-                           'show_archived': 'false',
+                           'show_archived': 'true' if archived else 'false',
                            'show_filed': 'true',
                            'sort_direction': 'desc',
                            'sort_field': 'create_date',

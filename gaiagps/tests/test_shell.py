@@ -27,7 +27,7 @@ class FakeClient(object):
         ]
     WAYPOINTS = [
         {'id': '001', 'folder': None, 'title': 'wpt1'},
-        {'id': '002', 'folder': '101', 'title': 'wpt2'},
+        {'id': '002', 'folder': '101', 'title': 'wpt2', 'deleted': True},
         {'id': '003', 'folder': '103', 'title': 'wpt3',
          'properties': {'time_created': '2015-10-21T23:29:00Z'}},
     ]
@@ -39,9 +39,12 @@ class FakeClient(object):
     def __init__(self, *a, **k):
         pass
 
-    def list_objects(self, objtype):
+    def list_objects(self, objtype, archived=True):
         def add_props(l):
-            return [dict(d, properties=d.get('properties', {})) for d in l]
+            return [dict(d, properties=d.get('properties', {}),
+                         deleted=d.get('deleted', False))
+                    for d in l
+                    if archived or d.get('deleted', False) == False]
 
         if objtype == 'waypoint':
             return add_props(self.WAYPOINTS)
@@ -174,6 +177,38 @@ class TestShellUnit(unittest.TestCase):
 
         rc, out = self._run('waypoint list --match-date 2015-10-21:foo')
         self.assertEqual(2, rc)
+
+    @mock.patch.object(FakeClient, 'list_objects')
+    def test_list_archived_include_logic(self, mock_list):
+        rc, out = self._run('waypoint list')
+        self.assertEqual(rc, 0)
+        mock_list.assert_called_once_with('waypoint', archived=True)
+
+        mock_list.reset_mock()
+        rc, out = self._run('waypoint list --archived=no')
+        self.assertEqual(rc, 0)
+        mock_list.assert_called_once_with('waypoint', archived=False)
+
+        mock_list.reset_mock()
+        rc, out = self._run('waypoint list --archived=yes')
+        self.assertEqual(rc, 0)
+        mock_list.assert_called_once_with('waypoint', archived=True)
+
+    def test_list_archived(self):
+        rc, out = self._run('waypoint list')
+        self.assertEqual(0, rc)
+        self.assertIn('wpt1', out)
+        self.assertIn('wpt2', out)
+
+        rc, out = self._run('waypoint list --archived=y')
+        self.assertEqual(0, rc)
+        self.assertNotIn('wpt1', out)
+        self.assertIn('wpt2', out)
+
+        rc, out = self._run('waypoint list --archived=n')
+        self.assertEqual(0, rc)
+        self.assertIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):
@@ -318,7 +353,8 @@ class TestShellUnit(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertIn('Renaming', out)
         new_wpt = {'id': '002', 'folder': '101',
-                   'properties': {'title': 'wpt7'}}
+                   'properties': {'title': 'wpt7'},
+                   'deleted': True}
         if dry:
             mock_put.assert_not_called()
         else:
