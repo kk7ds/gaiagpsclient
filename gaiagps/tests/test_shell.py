@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import mock
+import os
 import shlex
 import unittest
 import io
@@ -35,6 +36,8 @@ class FakeClient(object):
         {'id': '201', 'folder': None, 'title': 'trk1'},
         {'id': '202', 'folder': '102', 'title': 'trk2'},
     ]
+
+    s = None
 
     def __init__(self, *a, **k):
         pass
@@ -681,3 +684,45 @@ class TestShellUnit(unittest.TestCase):
 
         rc, out = self._run('folder export folder1 --format jpg foo')
         self.assertEqual(2, rc)
+
+    def test_query_hidden(self):
+        rc, out = self._run('query foo')
+        self.assertEqual(2, rc)
+
+    @mock.patch.dict(os.environ, GAIAGPSCLIENTDEV='y')
+    @mock.patch.object(FakeClient, 's')
+    def test_query(self, mock_s):
+        mock_r = mock.MagicMock()
+        mock_r.headers = {'Content-Type': 'foo json foo'}
+        mock_r.status_code = 200
+        mock_r.reason = 'OK'
+        mock_r.json.return_value = {'object': 'data'}
+        mock_s.get.return_value = mock_r
+        rc, out = self._run('query api/objects/waypoint')
+        self.assertEqual(rc, 0)
+        self.assertIn('200 OK', out)
+        self.assertIn('json', out)
+        self.assertIn('object', out)
+        mock_s.get.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            params={})
+        mock_r.json.assert_called_once_with()
+
+    @mock.patch.dict(os.environ, GAIAGPSCLIENTDEV='y')
+    @mock.patch.object(FakeClient, 's')
+    def test_query_args_method_quiet(self, mock_s):
+        mock_r = mock.MagicMock()
+        mock_r.headers = {'Content-Type': 'html'}
+        mock_r.status_code = 200
+        mock_r.reason = 'OK'
+        mock_r.content = 'foo'
+        mock_s.put.return_value = mock_r
+
+        rc, out = self._run('query api/objects/waypoint -X PUT -a foo=bar -q')
+        self.assertEqual(rc, 0)
+        self.assertNotIn('200 OK', out)
+        self.assertNotIn('Content-Type', out)
+        self.assertIn('foo', out)
+        mock_s.put.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            params={'foo': 'bar'})

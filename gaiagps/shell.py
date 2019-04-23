@@ -655,6 +655,44 @@ class Upload(Command):
             self.client.delete_object('folder', new_folder['id'])
 
 
+class Query(Command):
+    """Allow direct query by URL for debugging.
+
+    Developer tool for issuing manual queries against the API.
+    """
+    @staticmethod
+    def opts(parser):
+        parser.add_argument('path',
+                            help='API URL path')
+        parser.add_argument('-a', nargs='*', metavar='KEY=VALUE',
+                            dest='args', default=[],
+                            help='Query string argument in the form key=value')
+        parser.add_argument('-X', default='GET', choices=('GET', 'PUT', 'POST',
+                                                          'DELETE', 'OPTIONS',
+                                                          'HEAD'),
+                            dest='method', metavar='METHOD',
+                            help='Method (default is GET)')
+        parser.add_argument('-q', action='store_true',
+                            dest='quiet',
+                            help=('Suppress response information; '
+                                  'only print content'))
+
+    def default(self, args):
+        method = getattr(self.client.s, args.method.lower())
+        r = method(apiclient.gurl(*args.path.split('/')),
+                   params=dict(x.split('=', 1) for x in args.args))
+        if not args.quiet:
+            print('HTTP %i %s' % (r.status_code, r.reason))
+            for h in r.headers:
+                print('%s: %s' % (h, r.headers[h]))
+            print()
+
+        if 'json' in r.headers.get('Content-Type', ''):
+            pprint.pprint(r.json())
+        else:
+            print(r.content)
+
+
 @contextlib.contextmanager
 def cookiejar():
     if sys.platform == 'win32':
@@ -687,6 +725,9 @@ def main(args=None):
 
     command_classes = [Waypoint, Folder, Test, Tree, Track, Upload]
     commands = {}
+
+    if 'GAIAGPSCLIENTDEV' in os.environ:
+        command_classes.append(Query)
 
     for ccls in command_classes:
         command_name = ccls.__name__.lower()
