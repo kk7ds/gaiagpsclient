@@ -46,3 +46,6 @@ class TestDocSnippetsUnit(unittest.TestCase):
 
     def test_cli(self):
         self._test_doc_file('cli.rst')
+
+    def test_install(self):
+        self._test_doc_file('install.rst')
