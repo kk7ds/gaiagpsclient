@@ -41,6 +41,8 @@ class TestDocSnippetsUnit(unittest.TestCase):
 
     def _test_doc_file(self, filename):
         lines = self._get_invocations(self._doc_file(filename))
+        self.assertNotEqual(0, len(lines),
+                            'No commands matched in %r' % filename)
         for number, line in lines:
             self._test_invocation('%s:%i' % (filename, number), line)
 
