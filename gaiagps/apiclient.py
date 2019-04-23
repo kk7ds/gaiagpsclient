@@ -91,8 +91,11 @@ class GaiaClient(object):
     still active, login credentials are not used.
 
     :param username: Username for gaiagps.com
+    :type username: str
     :param password: Password for gaiagps.com
-    :param cookies: A ``http.cookiejar.CookieJar`` or ``None``
+    :type password: str
+    :param cookies: A cookie jar or ``None``
+    :type cookies: http.cookiejar.CookieJar
     :raises AuthFailure: if login fails
     :raises RuntimeError: if session is stale and credentials are
             not provided
@@ -121,7 +124,8 @@ class GaiaClient(object):
     def test_auth(self):
         """Test the session to see if we are successfully logged in.
 
-        :returns: True if we are already logged in
+        :returns: ``True`` if we are already logged in
+        :rtype: `bool`
         """
         r = self.s.get(gurl('login'))
         return 'login' not in r.url
@@ -155,8 +159,11 @@ class GaiaClient(object):
         references instead of full objects.
 
         :param objtype: The type of object to be listed
+        :type objtype: str
         :param archived: If ``True``, archived objects will be included
+        :type archived: bool
         :returns: A list of objects
+        :rtype: `list`
         """
         assert objtype in ('folder', 'track', 'waypoint')
 
@@ -179,8 +186,11 @@ class GaiaClient(object):
         with the specified name is found, an error is raised.
 
         :param objtype: The type of object to be found (waypoint, track, etc)
+        :type objtype: str
         :param name: The name of the object to be found
+        :type name: str
         :returns: An object description
+        :rtype: `dict`
         :raises RuntimeError: When multiple objects by the same name are found
         :raises NotFound: When no object by the given name is found
         """
@@ -194,10 +204,14 @@ class GaiaClient(object):
         provided, ``id_`` takes precedence over ``name``.
 
         :param name: The name of the object
+        :type name: str
         :param id_: The id of the object
+        :type id_: str
         :param fmt: Optional format (``'gpx'`` or ``'kml'``)
-        :returns: The waypoint data structure, or a ``bytes()`` if format
+        :type fmt: str
+        :returns: The waypoint data structure, or raw content if format
                   is specified
+        :rtype: `dict` or `bytes`
         :raises NotFound: if no folder by the given name is found
         :raises RuntimeError: if more than one folder exists with the name
         """
@@ -228,8 +242,11 @@ class GaiaClient(object):
         """Create an object.
 
         :param objtype: The type of object to create (waypoint, track, etc)
+        :type objtype: str
         :param objdata: The exact raw object structure
-        :returns: The resulting object, if successful, else None
+        :type objdata: dict
+        :returns: The resulting object, if successful, else ``None``
+        :rtype: `dict`
         """
         LOG.debug('Creating %s: %s' % (objtype, pprint.pformat(objdata)))
         r = self.s.post(gurl('api', 'objects', objtype), json=objdata)
@@ -245,8 +262,11 @@ class GaiaClient(object):
         """Update an object.
 
         :param objtype: The type of object to be updated
+        :type objtype: str
         :param objdata: The exact raw object structure
+        :type objdata: dict
         :returns: The resulting object, if successful, else ``None``
+        :rtype: `dict`
         """
         LOG.debug('Putting %s/%s: %s' % (objtype, objdata['id'],
                                          pprint.pformat(objdata)))
@@ -262,7 +282,9 @@ class GaiaClient(object):
         """Delete an object by id.
 
         :param objtype: The type of object to delete
+        :type objtype: str
         :param id_: The id of the object to delete
+        :type id_: str
         """
         r = self.s.delete(gurl('api', 'objects', objtype, id_))
         _logresp(r)
@@ -271,9 +293,13 @@ class GaiaClient(object):
         """Adds an object to a folder.
 
         :param folderid: The id if the folder in question
+        :type folderid: str
         :param objtype: The type of the object to add
+        :type objtype: str
         :param objid: The id of the object to add
+        :type objid: str
         :returns: The updated folder description
+        :rtype: `dict`
         """
 
         assert objtype in ('waypoint', 'track', 'folder')
@@ -298,9 +324,13 @@ class GaiaClient(object):
         """Removes an object from a folder.
 
         :param folderid: The id of the folder in question
+        :type folderid: str
         :param objtype: The type of the object to remove
+        :type objtype: str
         :param objid: The id of the object to remove
+        :type objid: str
         :returns: The updated folder description
+        :rtype: `dict`
         """
 
         assert objtype in ('waypoint', 'track', 'folder')
@@ -324,9 +354,11 @@ class GaiaClient(object):
         """Upload a file by name.
 
         :param filename: The local filename to upload
+        :type filename: str
         :returns: The resulting folder object that is created to hold the
                   contents of the file, as you would get from
                   :func:`~get_object`.
+        :rtype: `dict`
         """
         files = {'files': open(filename, 'rb')}
         r = self.s.post(gurl('upload'), files=files,
@@ -341,9 +373,13 @@ class GaiaClient(object):
         """Control archive (sync) status on a set of objects.
 
         :param objtype: The type of object to change
+        :type objtype: str
         :param ids: A list of object IDs
+        :type ids: str
         :param archive: ``True`` if the object should be archived
+        :type archive: bool
         :returns: ``True`` on success, ``False`` otherwise
+        :rtype: `bool`
         """
         r = self.s.put(gurl('api', 'objects', objtype),
                        json={'deleted': archive,

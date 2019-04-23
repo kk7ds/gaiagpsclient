@@ -17,9 +17,10 @@ def date_parse(thing):
 
       {'id': '1234', 'title': 'Foo', 'time_created': '2019-01-01T10:11:12Z'}
 
-    :param thing: A ``dict`` raw object from the API
-    :returns: A localized tz-aware :class:`datetime.datetime` or None if no
-              datestamp is found.
+    :param thing: A raw object from the API
+    :type thing: dict
+    :returns: A localized tz-aware `datetime` or None if no datestamp is found.
+    :rtype: :class:`datetime.datetime`
     """
     ds = thing.get('time_created') or thing['properties'].get('time_created')
     if not ds:
@@ -42,8 +43,10 @@ def datefmt(thing):
     See :func:`~date_parse` for more information.
 
     :param thing: A ``dict`` raw object from the API.
+    :type thing: dict
     :returns: A nicely-formatted date string, or ``'?'`` if none is found
               or is parseable
+    :rtype: `str`
     """
     localdt = date_parse(thing)
     if localdt:
@@ -58,9 +61,13 @@ def make_waypoint(name, lat, lon, alt=0):
     This returns an object suitable for sending to the API.
 
     :param lat: A ``float`` representing latitude
+    :type lat: float
     :param lon: A ``float`` representing longitude
+    :type lon: float
     :param alt: A ``float`` representing altitude in meters
+    :type alt: float
     :returns: A ``dict`` object
+    :rtype: `dict`
     """
     return {
         'type': 'Feature',
@@ -80,7 +87,9 @@ def make_folder(name):
     This returns an object suitable for sending to the API.
 
     :param name: A ``str`` representing the folder name
+    :type name: str
     :returns: A ``dict`` object
+    :rtype: `dict`
     """
     return {'title': name}
 
@@ -95,7 +104,9 @@ def make_tree(folders):
 
     :param folders: A flat ``list`` of folders like you get from
                     :func:`~gaiagps.apiclient.GaiaClient.list_objects`
+    :type folders: list
     :returns: A hierarchical ``dict`` of folders
+    :rtype: `dict`
     """
     folders_by_id = {folder['id']: folder
                      for folder in folders}
@@ -127,9 +138,12 @@ def resolve_tree(client, folder):
     would get from :func:`~gaiagps.apiclient.GaiaClient.get_object`.
 
     :param client: An instance of :class:`~gaiagps.apiclient.GaiaClient`
+    :type client: GaiaClient
     :param folder: A root folder of a hierarchical tree from
                    :func:`make_tree`
+    :type folder: dict
     :returns: A hierarchical tree of full folder definitions.
+    :rtype: `dict`
     """
 
     if 'id' in folder:
@@ -181,7 +195,9 @@ def pprint_folder(folder, indent=0):
     console.
 
     :param folder: A folder tree root from :func:`resolve_tree`
+    :type folder: dict
     :param indent: Number of spaces to indent the first level
+    :type indent: int
     """
     pfx = ' ' * indent
     for subf in name_sort(folder.get('subfolders', {}).values()):
@@ -209,8 +225,10 @@ def validate_lat(lat):
 
     Only decimal degrees is supported
 
-    :param lat: A ``str`` latitude
-    :returns: A ``float`` representing the latitude
+    :param lat: A latitude string
+    :type lat: str
+    :returns: A latitude
+    :rtype: `float`
     :raises ValueError: If the latitude is not parseable or within constraints
     """
     try:
@@ -229,8 +247,10 @@ def validate_lon(lon):
 
     Only decimal degrees is supported
 
-    :param lon: A ``str`` longitude
-    :returns: A ``float`` representing the longitude
+    :param lon: A longitude string
+    :type lon: str
+    :returns: A longitude
+    :rtype: `float`
     :raises ValueError: If the longitude is not parseable or within constraints
     """
     try:
@@ -249,8 +269,10 @@ def validate_alt(alt):
 
     Only meters are supported
 
-    :param alt: A ``str`` altitude
-    :returns: A ``float`` representing the altitude
+    :param alt: An altitude string
+    :type alt: str
+    :returns: An altitude
+    :rtype: `float`
     :raises ValueError: If the altitude is not parseable or within constraints
     """
     try:
@@ -268,8 +290,10 @@ def validate_alt(alt):
 def is_id(idstr):
     """Detect if a string is likely an API identifier
 
-    :param idstr: A ``str`` to be examined
+    :param idstr: An ID string to be examined
+    :type idstr: str
     :returns: ``True`` if the string is an identifier, ``False`` otherwise
+    :rtype: `bool`
     """
     return (len(idstr) in (36, 32) and
             all(c in string.hexdigits + '-' for c in idstr))
