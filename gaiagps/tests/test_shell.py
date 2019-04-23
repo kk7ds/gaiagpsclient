@@ -1,10 +1,11 @@
 import contextlib
 import copy
+import io
 import mock
 import os
+import pprint
 import shlex
 import unittest
-import io
 
 from gaiagps import apiclient
 from gaiagps import shell
@@ -84,6 +85,8 @@ class FakeClient(object):
 
         key = 'name' if objtype == 'folder' else 'title'
         obj['properties'] = {key: obj.pop('title')}
+        if objtype == 'waypoint':
+            obj['geometry'] = {'coordinates': [-122.0, 45.5, 123]}
         return obj
 
     def add_object_to_folder(self, folderid, objtype, objid):
@@ -105,6 +108,9 @@ class FakeClient(object):
         raise NotImplementedError('Mock me')
 
     def set_objects_archive(self, objtype, ids, archive):
+        raise NotImplementedError('Mock me')
+
+    def test_auth(self):
         raise NotImplementedError('Mock me')
 
 
@@ -199,6 +205,11 @@ class TestShellUnit(unittest.TestCase):
         rc, out = self._run('waypoint list --archived=yes')
         self.assertEqual(rc, 0)
         mock_list.assert_called_once_with('waypoint', archived=True)
+
+        mock_list.reset_mock()
+        rc, out = self._run('waypoint list --archived=foo')
+        self.assertEqual(rc, 2)
+        mock_list.assert_not_called()
 
     def test_list_archived(self):
         rc, out = self._run('waypoint list')
@@ -360,6 +371,7 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('Renaming', out)
         new_wpt = {'id': '002', 'folder': '101',
                    'properties': {'title': 'wpt7'},
+                   'geometry': {'coordinates': [-122.0, 45.5, 123]},
                    'deleted': True}
         if dry:
             mock_put.assert_not_called()
@@ -439,6 +451,13 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('Altitude', out)
 
     @mock.patch.object(FakeClient, 'create_object')
+    def test_add_waypoint_failed(self, mock_create):
+        mock_create.return_value = None
+        rc, out = self._run('waypoint add foo 1.2 2.6')
+        self.assertEqual(1, rc)
+        self.assertIn('Failed to create waypoint', out)
+
+    @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_add_waypoint_new_folder(self, mock_add, mock_create):
         mock_create.side_effect = [
@@ -510,6 +529,11 @@ class TestShellUnit(unittest.TestCase):
         self.assertEqual(0, rc)
         mock_archive.assert_not_called()
 
+    def test_waypoint_coords(self):
+        rc, out = self._run('waypoint coords wpt1')
+        self.assertEqual(rc, 0)
+        self.assertEqual('45.500000,-122.000000', out.strip())
+
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_folder(self, fake_create):
         rc, out = self._run('folder add foo')
@@ -532,6 +556,13 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('Dry run', out)
         fake_create.assert_not_called()
         fake_add.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'create_object')
+    def test_add_folder_failed(self, mock_create):
+        mock_create.return_value = None
+        rc, out = self._run('folder add foo')
+        self.assertEqual(1, rc)
+        self.assertIn('Failed to add folder', out)
 
     @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
@@ -726,3 +757,57 @@ class TestShellUnit(unittest.TestCase):
         mock_s.put.assert_called_once_with(
             apiclient.gurl('api', 'objects', 'waypoint'),
             params={'foo': 'bar'})
+
+    def test_url(self):
+        rc, out = self._run('waypoint url wpt1')
+        self.assertEqual(0, rc)
+        self.assertEqual('https://www.gaiagps.com/datasummary/waypoint/001',
+                         out.strip())
+
+    def test_dump(self):
+        rc, out = self._run('waypoint dump wpt1')
+        self.assertEqual(0, rc)
+        self.assertEqual(
+            pprint.pformat(
+                FakeClient().get_object('waypoint', 'wpt1')),
+            out.strip())
+
+    @mock.patch.object(FakeClient, 'test_auth')
+    def test_test(self, mock_test):
+        mock_test.return_value = True
+        rc, out = self._run('test')
+        self.assertEqual(0, rc)
+        self.assertEqual('Success!', out.strip())
+
+        mock_test.return_value = False
+        rc, out = self._run('test')
+        self.assertEqual(1, rc)
+        self.assertEqual('Unable to access gaia', out.strip())
+
+    @mock.patch.object(FakeClient, 'test_auth')
+    def test_with_debug(self, mock_test):
+        mock_test.return_value = True
+        rc, out = self._run('--debug test')
+        self.assertEqual(0, rc)
+
+    @mock.patch.object(FakeClient, '__init__')
+    def test_client_init_login_failure(self, mock_init):
+        mock_init.side_effect = Exception()
+        rc, out = self._run('test')
+        self.assertEqual(1, rc)
+        self.assertIn('Unable to access Gaia', out)
+
+    @mock.patch('getpass.getpass')
+    @mock.patch('os.isatty')
+    @mock.patch.object(FakeClient, '__init__')
+    @mock.patch.object(FakeClient, 'test_auth')
+    def test_get_pass(self, mock_test, mock_client, mock_tty, mock_getpass):
+        mock_tty.return_value = True
+        mock_getpass.return_value = mock.sentinel.password
+        mock_client.return_value = None
+        rc, out = self._run('--user foo@bar.com test')
+        self.assertEqual(0, rc)
+        mock_getpass.assert_called_once_with()
+        mock_client.assert_called_once_with('foo@bar.com',
+                                            mock.sentinel.password,
+                                            cookies=None)

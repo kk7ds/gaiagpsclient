@@ -338,10 +338,6 @@ class Command(object):
             show_archived = True
             only_archived = False
 
-        if show_archived is None:
-            print('Specify "yes" or "no" for --archived')
-            return 1
-
         items = self.client.list_objects(objtype, archived=show_archived)
         for item in items:
             folder = (item['folder'] and
@@ -571,6 +567,7 @@ class Test(Command):
             print('Success!')
         else:
             print('Unable to access gaia')
+            return 1
 
 
 class Tree(Command):

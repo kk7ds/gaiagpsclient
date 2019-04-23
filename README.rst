@@ -8,7 +8,7 @@ gaiagpsclient
 .. image:: https://readthedocs.org/projects/gaiagpsclient/badge/?version=latest
     :target: https://gaiagpsclient.readthedocs.io/en/latest/?badge=latest
 
-.. image:: https://coveralls.io/repos/github/kk7ds/gaiagpsclient/badge.svg?branch=master&killcache=1
+.. image:: https://coveralls.io/repos/github/kk7ds/gaiagpsclient/badge.svg?branch=master&killcache=2
     :target: https://coveralls.io/github/kk7ds/gaiagpsclient?branch=master
 
 
