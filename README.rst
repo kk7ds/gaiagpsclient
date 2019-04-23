@@ -28,6 +28,8 @@ On a modern Linux (and MacOS with python3 from brew), something like this should
 CLI Usage
 ---------
 
+For more information on usage, see the `full documentation <https://gaiagpsclient.readthedocs.io/en/latest/>`_. Below is a quick introduction to get you started.
+
 The command line client will attempt to login to gaiagps.com only when necessary, caching the session credentials whenever possible. Thus, at least the first use requires your Gaia credentials, and any time after that session expires. After installation, try testing your connection, which will perform a login and validate that communication is possible:
 
 .. code-block:: shell
@@ -111,7 +113,7 @@ Examples
 
 Here are some example common operations to demonstrate usage::
 
-  # Add a waypoint by lat/lon
+  # Add a waypoint by coordinates (i.e. specifying a latitude and longitude)
   $ gaiagps waypoint add 'My Campsite' 45.123 -122.9876
 
   # Show the waypoints so far
