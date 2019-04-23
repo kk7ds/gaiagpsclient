@@ -11,13 +11,17 @@ example, this gives an overview of global options and the top-level commands:
 
 The client attempts to login to gaiagps.com as infrequently as possible and stores session information
 to reduce the frequency of having to provide credentials. However, the first time user will have to login
-at least once, and any time the session expires. To do this the first time, use the ``test`` command::
+at least once, and any time the session expires. To do this the first time, use the ``test`` command:
+
+.. prompt:: bash $ auto
 
   $ gaiagps --user user@domain.com test
   Password:
   Success!
 
-Afterwards, you need not provide your username for subsequent usage (until your session expires)::
+Afterwards, you need not provide your username for subsequent usage (until your session expires):
+
+.. prompt:: bash $ auto
 
   $ gaiagps test
   Success!
@@ -28,7 +32,9 @@ Commands
 The utility is arranged hierarchically with top-level commands, some
 of which have sub commands. For example, the ``waypoint`` command  has
 multiple sub-commands for things like ``add``, ``rename``, ``remove``,
-etc::
+etc:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint add 'My Campsite' 45.124 -122.987
   $ gaiagps waypoint rename 'My Campsite' 'Cool Campsite'
@@ -48,7 +54,9 @@ Gaia organizes data loosely into a hierarchical structure. By default,
 all data items live at the "root" level, but can be moved into
 folders. Folders can also be moved into folders, creating an
 arbitrarily deep tree structure. For example, to create a folder and
-move a waypoint into that folder, do the following::
+move a waypoint into that folder, do the following:
+
+.. prompt:: bash $ auto
 
   $ gaiagps folder add 'My Folder'
   $ gaiagps waypoint move 'Cool Campsite' 'My Folder'
@@ -60,12 +68,16 @@ move a waypoint into that folder, do the following::
 
 Some operations that create data allow those items to be automatically
 moved into a new or existing folder. For example, to create a new
-folder inside another folder, you would::
+folder inside another folder, you would:
+
+.. prompt:: bash $ auto
 
   $ gaiagps folder add --existing-folder 'My Folder' 'Subfolder'
 
 When you create a waypoint, you can add it to an existing folder, or
-create new folder at the same time::
+create new folder at the same time:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint add --new-folder 'My New Folder' 'Trailhead' 45.321 -122.9012
 
@@ -76,7 +88,9 @@ Gaia allows you to create data objects with identical names. This
 makes it hard to distinguish one from the other, both in the web UI as
 well as at the command line. If you get into a situation where you
 have multiple objects with the same name, some work is required to
-disambiguate them. Consider the following scenario::
+disambiguate them. Consider the following scenario:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint list
   +--------------------------------+----------------------+------------------+
@@ -88,7 +102,9 @@ disambiguate them. Consider the following scenario::
 
 Here we have two waypoints called "My Campsite". If I wanted to take
 action on on of them, say move it into a folder, I am unable to
-specify the name::
+specify the name:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint move 'My Campsite' 'My Folder'
   Multiple items with title=My Campsite found
@@ -106,7 +122,9 @@ both are:
  3. Rename one of them using the ID instead of the name
 
 To show the items with names and IDs, use the ``--by-id`` option to
-list::
+list:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint list --by-id
   6e87d380-00a0-44b0-9b01-b127dc8e0ffe 20 Apr 2019 02:58:21 'My Campsite'
@@ -115,7 +133,9 @@ list::
 If the timestamp is enough to know which campsite is which, then you
 now have the ID necessary for the rename step. If the timestamp is not
 sufficient, you can get the browser-friendly URL of the item, by id,
-and look at it in the Gaia web UI to figure it out::
+and look at it in the Gaia web UI to figure it out:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint url 6e87d380-00a0-44b0-9b01-b127dc8e0ffe
   https://www.gaiagps.com/datasummary/waypoint/6e87d380-00a0-44b0-9b01-b127dc8e0ffe
@@ -123,11 +143,15 @@ and look at it in the Gaia web UI to figure it out::
 To continue the example, I now have enough information to know that
 the first campsite from 20-April-2019 is the one I want to share. In
 order to change the name of it to distinguish it from the other, I can
-use the ID::
+use the ID:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint rename 6e87d380-00a0-44b0-9b01-b127dc8e0ffe 'Awesome Campsite'
 
-Now, my waypoint list looks like this::
+Now, my waypoint list looks like this:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint list
   +--------------------------------+----------------------+------------------+
@@ -144,12 +168,16 @@ Matching and Bulk Operations
 
 Some commands support operating on multiple items at once. For
 example, you can move multiple waypoints into a folder in a single
-command::
+command:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint move 'Campsite' 'Trailhead' 'Summit' 'My Hike'
 
 Further, you can also use a regular expression to select multiple
-items to operate on::
+items to operate on:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint move --match 'Camp.*' 'All Campsites'
 
@@ -163,7 +191,9 @@ items to operate on::
 Some commands also support matching by date. This can be done by
 specifying a single date, or an inclusive date range. As an example, a
 large list of waypoints can be filtered into just a few from a trip
-with this strategy::
+with this strategy:
+
+.. prompt:: bash $ auto
 
   $ gaiagps waypoint list --match-date 2019-04-10
   +--------------------------------+----------------------+------------------+
