@@ -61,7 +61,19 @@ class TestClientUnit(unittest.TestCase):
     @mock.patch('gaiagps.apiclient.GaiaClient.test_auth')
     def test_login_not_needed(self, mock_test_auth):
         mock_test_auth.return_value = True
+        apiclient.GaiaClient('foo', 'bar')
         self.requests.post.assert_not_called()
+        mock_test_auth.assert_called_once_with()
+
+    def test_test_auth(self):
+        self.requests.get.return_value.url = '/foo'
+        api = self.get_api()
+        self.assertTrue(api.test_auth())
+
+    def test_test_auth_not_logged_in(self):
+        self.requests.get.return_value.url = '/login'
+        api = self.get_api()
+        self.assertFalse(api.test_auth())
 
     @mock.patch('gaiagps.apiclient.GaiaClient.test_auth')
     def get_api(self, mock_test_auth):
