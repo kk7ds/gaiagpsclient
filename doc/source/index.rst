@@ -3,8 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to GaiaGPS Python Client's documentation!
-=================================================
+GaiaGPS Python Client documentation
+===================================
+
+This is the documentation for the `gaiagpsclient <https://github.com/kk7ds/gaiagpsclient>`_ library and utility.
 
 Contents:
 
