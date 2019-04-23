@@ -126,6 +126,26 @@ def list_and_dump_ops(cmds):
     urlfor.add_argument('name', help='Name (or ID)')
 
 
+def archive_ops(cmds):
+    archive = cmds.add_parser('archive',
+                              help='Archive (set sync=off)')
+    unarchive = cmds.add_parser('unarchive',
+                                help='Unarchive (set sync=on)')
+    for i in (archive, unarchive):
+        i.add_argument('name', nargs='*',
+                       help='Name (or ID)')
+        i.add_argument('--match', action='store_true',
+                       help=('Treat names as regular expressions and include '
+                             'all matches'))
+        i.add_argument('--match-date', metavar='YYYY-MM-DD',
+                       action=DateRange,
+                       help=('Match items with this date. Specify an '
+                             'inclusive range with START:END.'))
+        i.add_argument('--dry-run', action='store_true',
+                       help=('Do not actually change anything '
+                             '(use with --verbose)'))
+
+
 class Command(object):
     def __init__(self, client, verbose=False):
         self.client = client
@@ -355,6 +375,35 @@ class Command(object):
                                         objtype,
                                         obj['id']))
 
+    def _archive(self, args, archive):
+        objtype = self.objtype
+        try:
+            to_hit = self.find_objects(args.name, match=args.match,
+                                       date_range=args.match_date)
+        except _Safety:
+            print('Specify name(s) of objects to archive or filter criteria')
+            return 1
+
+        if not to_hit:
+            self.verbose('No items matched criteria')
+            return
+
+        for item in to_hit:
+            op = archive and 'Archiving' or 'Unarchiving'
+            self.verbose('%s %r' % (op, item['title']))
+        if not args.dry_run:
+            self.client.set_objects_archive(objtype,
+                                            [i['id'] for i in to_hit],
+                                            archive)
+        else:
+            print('Dry run; no action taken')
+
+    def archive(self, args):
+        return self._archive(args, True)
+
+    def unarchive(self, args):
+        return self._archive(args, False)
+
 
 class Waypoint(Command):
     """Manage waypoints
@@ -380,6 +429,7 @@ class Waypoint(Command):
         rename_ops(cmds)
         export_ops(cmds)
         list_and_dump_ops(cmds)
+        archive_ops(cmds)
 
         coords = cmds.add_parser('coords', help='Display coordinates')
         coords.add_argument('name', help='Name (or ID)')
@@ -451,6 +501,7 @@ class Track(Command):
         move_ops(cmds)
         export_ops(cmds)
         list_and_dump_ops(cmds)
+        archive_ops(cmds)
 
 
 class Folder(Command):
@@ -474,6 +525,7 @@ class Folder(Command):
         move_ops(cmds)
         export_ops(cmds)
         list_and_dump_ops(cmds)
+        archive_ops(cmds)
 
     def add(self, args):
         if args.existing_folder:

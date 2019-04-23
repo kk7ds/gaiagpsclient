@@ -155,6 +155,7 @@ class GaiaClient(object):
         references instead of full objects.
 
         :param objtype: The type of object to be listed
+        :param archived: If ``True``, archived objects will be included
         :returns: A list of objects
         """
         assert objtype in ('folder', 'track', 'waypoint')
@@ -335,3 +336,17 @@ class GaiaClient(object):
         folder_id = r.url.rstrip('/').split('/')[-1]
         LOG.debug('Upload URL is %s, folder id is %s' % (r.url, folder_id))
         return self.get_object('folder', id_=folder_id)
+
+    def set_objects_archive(self, objtype, ids, archive=False):
+        """Control archive (sync) status on a set of objects.
+
+        :param objtype: The type of object to change
+        :param ids: A list of object IDs
+        :param archive: ``True`` if the object should be archived
+        :returns: ``True`` on success, ``False`` otherwise
+        """
+        r = self.s.put(gurl('api', 'objects', objtype),
+                       json={'deleted': archive,
+                             objtype: ids})
+        _logresp(r)
+        return r.status_code == 200

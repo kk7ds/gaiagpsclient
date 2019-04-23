@@ -44,7 +44,7 @@ class FakeClient(object):
             return [dict(d, properties=d.get('properties', {}),
                          deleted=d.get('deleted', False))
                     for d in l
-                    if archived or d.get('deleted', False) == False]
+                    if archived or d.get('deleted', False) is False]
 
         if objtype == 'waypoint':
             return add_props(self.WAYPOINTS)
@@ -99,6 +99,9 @@ class FakeClient(object):
         raise NotImplementedError('Mock me')
 
     def upload_file(self, filename):
+        raise NotImplementedError('Mock me')
+
+    def set_objects_archive(self, objtype, ids, archive):
         raise NotImplementedError('Mock me')
 
 
@@ -473,6 +476,36 @@ class TestShellUnit(unittest.TestCase):
         rc, out = self._run('upload foo.gpx')
         self.assertEqual(0, rc)
         mock_upload.assert_called_once_with('foo.gpx')
+
+    @mock.patch.object(FakeClient, 'set_objects_archive')
+    def _test_archive_waypoint(self, cmd, mock_archive):
+        args = [
+            'wpt3',
+            '--match w.*3',
+            '--match-date 2015-10-21',
+        ]
+        for arg in args:
+            mock_archive.reset_mock()
+            rc, out = self._run('waypoint %s %s' % (cmd, arg))
+            self.assertEqual(rc, 0)
+            mock_archive.assert_called_once_with('waypoint', ['003'],
+                                                 cmd == 'archive')
+
+    def test_archive_waypoint(self):
+        self._test_archive_waypoint('archive')
+
+    def test_unarchive_waypoint(self):
+        self._test_archive_waypoint('unarchive')
+
+    @mock.patch.object(FakeClient, 'set_objects_archive')
+    def test_archive_fails(self, mock_archive):
+        rc, out = self._run('waypoint archive')
+        self.assertEqual(1, rc)
+        mock_archive.assert_not_called()
+
+        rc, out = self._run('waypoint archive --match nothing')
+        self.assertEqual(0, rc)
+        mock_archive.assert_not_called()
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_folder(self, fake_create):

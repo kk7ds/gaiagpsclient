@@ -272,6 +272,25 @@ class TestClientUnit(unittest.TestCase):
             apiclient.gurl('api', 'objects', 'waypoint'),
             params=expected_params)
 
+    def test_set_objects_archive(self):
+        api = self.get_api()
+        self.requests.put.return_value.status_code = 200
+        r = api.set_objects_archive('waypoint', ['1', '2'], False)
+        self.assertTrue(r)
+        self.requests.put.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            json={'deleted': False,
+                  'waypoint': ['1', '2']})
+
+        self.requests.put.reset_mock()
+        self.requests.put.return_value.status_code = 400
+        r = api.set_objects_archive('waypoint', ['1', '2'], True)
+        self.assertFalse(r)
+        self.requests.put.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            json={'deleted': True,
+                  'waypoint': ['1', '2']})
+
 
 class TestClientFunctional(unittest.TestCase):
     @classmethod
