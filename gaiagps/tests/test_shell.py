@@ -122,27 +122,28 @@ def fake_cookiejar():
 @mock.patch('gaiagps.shell.cookiejar', new=fake_cookiejar)
 @mock.patch.object(apiclient, 'GaiaClient', new=FakeClient)
 class TestShellUnit(unittest.TestCase):
-    def _run(self, cmdline):
+    def _run(self, cmdline, expect_fail=False):
         out = FakeOutput()
         with mock.patch.multiple('sys', stdout=out, stderr=out, stdin=out):
             rc = shell.main(shlex.split(cmdline))
         print(out.getvalue())
-        return rc, out.getvalue()
+        if not expect_fail:
+            self.assertEqual(0, rc)
+        else:
+            self.assertNotEqual(0, rc)
+        return out.getvalue()
 
     def test_first_run(self):
-        rc, out = self._run('')
-        self.assertEqual(1, rc)
+        out = self._run('', expect_fail=True)
         self.assertIn('usage:', out)
 
     def test_waypoint_list_by_id(self):
-        rc, out = self._run('waypoint list --by-id')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --by-id')
         self.assertIn('001', out)
         self.assertIn('wpt2', out)
 
     def test_list_wpt(self):
-        rc, out = self._run('waypoint list')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list')
         self.assertIn('wpt1', out)
         self.assertIn('wpt2', out)
         self.assertIn('wpt3', out)
@@ -151,8 +152,7 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('folder2', out)
 
     def test_list_trk(self):
-        rc, out = self._run('track list')
-        self.assertEqual(0, rc)
+        out = self._run('track list')
         self.assertIn('trk1', out)
         self.assertIn('trk2', out)
         self.assertIn('folder2', out)
@@ -160,79 +160,67 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('subfolder', out)
 
     def test_list_match(self):
-        rc, out = self._run('waypoint list --match w.*2')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --match w.*2')
         self.assertIn('wpt2', out)
         self.assertNotIn('wpt1', out)
 
     def test_list_match_date(self):
-        rc, out = self._run('waypoint list --match-date 2019-01-01')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --match-date 2019-01-01')
         self.assertNotIn('wpt1', out)
         self.assertNotIn('wpt2', out)
         self.assertNotIn('wpt3', out)
 
-        rc, out = self._run('waypoint list --match-date 2015-10-21')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --match-date 2015-10-21')
         self.assertNotIn('wpt1', out)
         self.assertNotIn('wpt2', out)
         self.assertIn('wpt3', out)
 
-        rc, out = self._run('waypoint list --match-date 2015-10-21:2015-10-22')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --match-date 2015-10-21:2015-10-22')
         self.assertNotIn('wpt1', out)
         self.assertNotIn('wpt2', out)
         self.assertIn('wpt3', out)
 
-        rc, out = self._run('waypoint list --match-date foo')
-        self.assertEqual(2, rc)
-
-        rc, out = self._run('waypoint list --match-date 2015-10-21:foo')
-        self.assertEqual(2, rc)
+        out = self._run('waypoint list --match-date foo',
+                        expect_fail=True)
+        out = self._run('waypoint list --match-date 2015-10-21:foo',
+                        expect_fail=True)
 
     @mock.patch.object(FakeClient, 'list_objects')
     def test_list_archived_include_logic(self, mock_list):
-        rc, out = self._run('waypoint list')
-        self.assertEqual(rc, 0)
+        self._run('waypoint list')
         mock_list.assert_called_once_with('waypoint', archived=True)
 
         mock_list.reset_mock()
-        rc, out = self._run('waypoint list --archived=no')
-        self.assertEqual(rc, 0)
+        self._run('waypoint list --archived=no')
         mock_list.assert_called_once_with('waypoint', archived=False)
 
         mock_list.reset_mock()
-        rc, out = self._run('waypoint list --archived=yes')
-        self.assertEqual(rc, 0)
+        self._run('waypoint list --archived=yes')
         mock_list.assert_called_once_with('waypoint', archived=True)
 
         mock_list.reset_mock()
-        rc, out = self._run('waypoint list --archived=foo')
-        self.assertEqual(rc, 2)
+        self._run('waypoint list --archived=foo',
+                  expect_fail=True)
         mock_list.assert_not_called()
 
     def test_list_archived(self):
-        rc, out = self._run('waypoint list')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list')
         self.assertIn('wpt1', out)
         self.assertIn('wpt2', out)
 
-        rc, out = self._run('waypoint list --archived=y')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --archived=y')
         self.assertNotIn('wpt1', out)
         self.assertIn('wpt2', out)
 
-        rc, out = self._run('waypoint list --archived=n')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint list --archived=n')
         self.assertIn('wpt1', out)
         self.assertNotIn('wpt2', out)
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):
-        rc, out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
+        out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
             verbose and '--verbose' or '',
             dry and '--dry-run' or ''))
-        self.assertEqual(0, rc)
         if dry:
             mock_add.assert_not_called()
         else:
@@ -258,49 +246,44 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match(self, mock_add):
-        rc, out = self._run('waypoint move --match w.*2 folder2')
-        self.assertEqual(0, rc)
+        self._run('waypoint move --match w.*2 folder2')
         mock_add.assert_has_calls([mock.call('102', 'waypoint', '002')])
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_date(self, mock_add):
-        rc, out = self._run('waypoint move --match-date 2015-10-21 folder2')
-        self.assertEqual(0, rc)
+        self._run('waypoint move --match-date 2015-10-21 folder2')
         mock_add.assert_called_once_with('102', 'waypoint', '003')
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_none(self, mock_add):
-        rc, out = self._run('waypoint move --match-date 2019-01-01 folder2')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint move --match-date 2019-01-01 folder2')
         self.assertIn('', out)
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_ambiguous(self, mock_add):
-        rc, out = self._run('waypoint move folder2')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint move folder2',
+                        expect_fail=True)
         self.assertIn('Specify', out)
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_to_nonexistent_folder(self, mock_add):
-        rc, out = self._run('waypoint move wpt1 wpt2 foobar')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint move wpt1 wpt2 foobar',
+                        expect_fail=True)
         self.assertIn('foobar not found', out)
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'remove_object_from_folder')
     def test_move_to_root(self, mock_remove):
-        rc, out = self._run('waypoint move wpt1 wpt2 /')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint move wpt1 wpt2 /')
         mock_remove.assert_has_calls([mock.call('101', 'waypoint', '002')])
         self.assertIn('\'wpt1\' is already at root', out)
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove(self, mock_delete, dry=False):
-        rc, out = self._run('waypoint remove wpt1 wpt2 %s' % (
+        out = self._run('waypoint remove wpt1 wpt2 %s' % (
             dry and '--dry-run' or ''))
-        self.assertEqual(0, rc)
         if dry:
             self.assertIn('Dry run', out)
             mock_delete.assert_not_called()
@@ -314,36 +297,32 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_match_verbose(self, mock_delete):
-        rc, out = self._run('--verbose waypoint remove --match w.*2')
-        self.assertEqual(0, rc)
+        out = self._run('--verbose waypoint remove --match w.*2')
         self.assertIn('Removing waypoint \'wpt2\'', out)
         mock_delete.assert_has_calls([mock.call('waypoint', '002')])
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_missing(self, mock_delete):
-        rc, out = self._run('--verbose waypoint remove wpt7')
-        self.assertEqual(1, rc)
+        out = self._run('--verbose waypoint remove wpt7',
+                        expect_fail=True)
         self.assertIn('not found', out)
         mock_delete.assert_not_called()
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_folder_empty(self, mock_delete):
-        rc, out = self._run('--verbose folder remove emptyfolder')
-        self.assertEqual(0, rc)
+        out = self._run('--verbose folder remove emptyfolder')
         self.assertIn('Removing', out)
         mock_delete.assert_called_once_with('folder', '104')
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_folder_nonempty(self, mock_delete):
-        rc, out = self._run('--verbose folder remove folder1')
-        self.assertEqual(0, rc)
+        out = self._run('--verbose folder remove folder1')
         self.assertIn('skipping', out)
         mock_delete.assert_not_called()
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove_folder_nonempty_force(self, mock_delete):
-        rc, out = self._run('--verbose folder remove --force folder1')
-        self.assertEqual(0, rc)
+        out = self._run('--verbose folder remove --force folder1')
         self.assertIn('Warning', out)
         mock_delete.assert_called_once_with('folder', '101')
 
@@ -353,21 +332,18 @@ class TestShellUnit(unittest.TestCase):
     def test_remove_folder_nonempty_prompt(self, mock_delete, mock_tty,
                                            mock_input):
         mock_input.return_value = ''
-        rc, out = self._run('--verbose folder remove folder1')
-        self.assertEqual(0, rc)
+        self._run('--verbose folder remove folder1')
         mock_delete.assert_not_called()
 
         mock_input.return_value = 'y'
-        rc, out = self._run('--verbose folder remove folder1')
-        self.assertEqual(0, rc)
+        self._run('--verbose folder remove folder1')
         mock_delete.assert_called_once_with('folder', '101')
 
     @mock.patch.object(FakeClient, 'put_object')
     def test_rename_waypoint(self, mock_put, dry=False):
-        rc, out = self._run(
+        out = self._run(
             '--verbose waypoint rename wpt2 wpt7 %s' % (
                 dry and '--dry-run' or ''))
-        self.assertEqual(0, rc)
         self.assertIn('Renaming', out)
         new_wpt = {'id': '002', 'folder': '101',
                    'properties': {'title': 'wpt7'},
@@ -383,8 +359,7 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'put_object')
     def test_rename_track(self, mock_put):
-        rc, out = self._run('--verbose track rename trk2 trk7')
-        self.assertEqual(0, rc)
+        out = self._run('--verbose track rename trk2 trk7')
         self.assertIn('Renaming', out)
         new_trk = {'id': '202', 'title': 'trk7'}
         mock_put.assert_called_once_with('track', new_trk)
@@ -392,14 +367,13 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch.object(FakeClient, 'put_object')
     def test_rename_fail(self, mock_put):
         mock_put.return_value = None
-        rc, out = self._run('track rename trk2 trk7')
-        self.assertEqual(1, rc)
+        out = self._run('track rename trk2 trk7',
+                        expect_fail=True)
         self.assertIn('Failed to rename', out)
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint(self, mock_create):
-        rc, out = self._run('waypoint add foo 1.5 2.6')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add foo 1.5 2.6')
         self.assertEqual('', out)
         mock_create.assert_called_once_with(
             'waypoint',
@@ -408,29 +382,25 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_add_waypoint_dry_run(self, mock_add, mock_create):
-        rc, out = self._run('waypoint add --dry-run test 1 2')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add --dry-run test 1 2')
         self.assertIn('Dry run', out)
         mock_create.assert_not_called()
         mock_add.assert_not_called()
 
-        rc, out = self._run('waypoint add --dry-run --new-folder foo test 1 2')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add --dry-run --new-folder foo test 1 2')
         self.assertIn('Dry run', out)
         mock_create.assert_not_called()
         mock_add.assert_not_called()
 
-        rc, out = self._run('waypoint add --dry-run --existing-folder folder1 '
-                            'test 1 2')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add --dry-run --existing-folder folder1 '
+                        'test 1 2')
         self.assertIn('Dry run', out)
         mock_create.assert_not_called()
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint_with_altitude(self, mock_create):
-        rc, out = self._run('waypoint add foo 1.5 2.6 3')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add foo 1.5 2.6 3')
         self.assertEqual('', out)
         mock_create.assert_called_once_with(
             'waypoint',
@@ -438,23 +408,23 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint_bad_data(self, mock_create):
-        rc, out = self._run('waypoint add foo a 2.6')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint add foo a 2.6',
+                        expect_fail=True)
         self.assertIn('Latitude', out)
 
-        rc, out = self._run('waypoint add foo 1.5 a')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint add foo 1.5 a',
+                        expect_fail=True)
         self.assertIn('Longitude', out)
 
-        rc, out = self._run('waypoint add foo 1.5 2.6 a')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint add foo 1.5 2.6 a',
+                        expect_fail=True)
         self.assertIn('Altitude', out)
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint_failed(self, mock_create):
         mock_create.return_value = None
-        rc, out = self._run('waypoint add foo 1.2 2.6')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint add foo 1.2 2.6',
+                        expect_fail=True)
         self.assertIn('Failed to create waypoint', out)
 
     @mock.patch.object(FakeClient, 'create_object')
@@ -463,8 +433,7 @@ class TestShellUnit(unittest.TestCase):
         mock_create.side_effect = [
             {'id': '1'},
             {'id': '2', 'properties': {'name': 'folder'}}]
-        rc, out = self._run('waypoint add --new-folder bar foo 1.5 2.6')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint add --new-folder bar foo 1.5 2.6')
         self.assertEqual('', out)
         mock_create.assert_has_calls([
             mock.call('waypoint',
@@ -479,9 +448,8 @@ class TestShellUnit(unittest.TestCase):
         mock_create.side_effect = [
             {'id': '1'},
             {'id': '2', 'properties': {'name': 'folder'}}]
-        rc, out = self._run(
+        out = self._run(
             'waypoint add --existing-folder folder1 foo 1.5 2.6')
-        self.assertEqual(0, rc)
         self.assertEqual('', out)
         mock_create.assert_has_calls([
             mock.call('waypoint',
@@ -489,14 +457,13 @@ class TestShellUnit(unittest.TestCase):
         mock_add.assert_called_once_with('101', 'waypoint', '1')
 
     def test_add_waypoint_existing_folder_not_found(self):
-        rc, out = self._run('waypoint add --existing-folder bar foo 1.5 2.6')
-        self.assertEqual(1, rc)
+        out = self._run('waypoint add --existing-folder bar foo 1.5 2.6',
+                        expect_fail=True)
         self.assertIn('not found', out)
 
     @mock.patch.object(FakeClient, 'upload_file')
     def test_upload(self, mock_upload):
-        rc, out = self._run('upload foo.gpx')
-        self.assertEqual(0, rc)
+        self._run('upload foo.gpx')
         mock_upload.assert_called_once_with('foo.gpx')
 
     @mock.patch.object(FakeClient, 'set_objects_archive')
@@ -508,8 +475,7 @@ class TestShellUnit(unittest.TestCase):
         ]
         for arg in args:
             mock_archive.reset_mock()
-            rc, out = self._run('waypoint %s %s' % (cmd, arg))
-            self.assertEqual(rc, 0)
+            self._run('waypoint %s %s' % (cmd, arg))
             mock_archive.assert_called_once_with('waypoint', ['003'],
                                                  cmd == 'archive')
 
@@ -521,38 +487,33 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'set_objects_archive')
     def test_archive_fails(self, mock_archive):
-        rc, out = self._run('waypoint archive')
-        self.assertEqual(1, rc)
+        self._run('waypoint archive',
+                  expect_fail=True)
         mock_archive.assert_not_called()
 
-        rc, out = self._run('waypoint archive --match nothing')
-        self.assertEqual(0, rc)
+        self._run('waypoint archive --match nothing')
         mock_archive.assert_not_called()
 
     def test_waypoint_coords(self):
-        rc, out = self._run('waypoint coords wpt1')
-        self.assertEqual(rc, 0)
+        out = self._run('waypoint coords wpt1')
         self.assertEqual('45.500000,-122.000000', out.strip())
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_folder(self, fake_create):
-        rc, out = self._run('folder add foo')
-        self.assertEqual(0, rc)
+        out = self._run('folder add foo')
         self.assertEqual('', out)
         fake_create.assert_called_once_with('folder', util.make_folder('foo'))
 
     @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_add_folder_dry_run(self, fake_add, fake_create):
-        rc, out = self._run('folder add --dry-run foo')
-        self.assertEqual(0, rc)
+        out = self._run('folder add --dry-run foo')
         self.assertIn('Dry run', out)
         fake_create.assert_not_called()
         fake_add.assert_not_called()
 
-        rc, out = self._run('folder add --dry-run --existing-folder folder1 '
-                            'foo')
-        self.assertEqual(0, rc)
+        out = self._run('folder add --dry-run --existing-folder folder1 '
+                        'foo')
         self.assertIn('Dry run', out)
         fake_create.assert_not_called()
         fake_add.assert_not_called()
@@ -560,16 +521,15 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_folder_failed(self, mock_create):
         mock_create.return_value = None
-        rc, out = self._run('folder add foo')
-        self.assertEqual(1, rc)
+        out = self._run('folder add foo',
+                        expect_fail=True)
         self.assertIn('Failed to add folder', out)
 
     @mock.patch.object(FakeClient, 'create_object')
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_add_folder_to_existing(self, fake_add, fake_create):
         fake_create.return_value = {'id': '105'}
-        rc, out = self._run('folder add --existing-folder folder1 foo')
-        self.assertEqual(0, rc)
+        out = self._run('folder add --existing-folder folder1 foo')
         self.assertEqual('', out)
         fake_create.assert_called_once_with('folder', util.make_folder('foo'))
         fake_add.assert_called_once_with('101', 'folder', '105')
@@ -579,8 +539,8 @@ class TestShellUnit(unittest.TestCase):
     def test_add_folder_to_existing_fail(self, fake_add, fake_create):
         fake_create.return_value = {'id': '105'}
         fake_add.return_value = None
-        rc, out = self._run('folder add --existing-folder folder1 foo')
-        self.assertEqual(1, rc)
+        out = self._run('folder add --existing-folder folder1 foo',
+                        expect_fail=True)
         self.assertIn('failed to add', out)
         fake_create.assert_called_once_with('folder', util.make_folder('foo'))
 
@@ -609,9 +569,7 @@ class TestShellUnit(unittest.TestCase):
                                  FOLDERS=folders_copy,
                                  WAYPOINTS=waypoints_copy,
                                  TRACKS=tracks_copy):
-            rc, out = self._run('upload --existing-folder folder1 foo.gpx')
-
-        self.assertEqual(0, rc)
+            self._run('upload --existing-folder folder1 foo.gpx')
 
         expected = copy.deepcopy(FakeClient.FOLDERS[0])
         expected['children'] = []
@@ -654,9 +612,7 @@ class TestShellUnit(unittest.TestCase):
                                  FOLDERS=folders_copy,
                                  WAYPOINTS=waypoints_copy,
                                  TRACKS=tracks_copy):
-            rc, out = self._run('upload --new-folder newfolder foo.gpx')
-
-        self.assertEqual(0, rc)
+            self._run('upload --new-folder newfolder foo.gpx')
 
         expected = copy.deepcopy(folders_copy[-1])
         expected['children'] = []
@@ -672,8 +628,8 @@ class TestShellUnit(unittest.TestCase):
     def test_upload_new_folder_create_fail(self, mock_delete, mock_create,
                                            mock_upload):
         mock_create.return_value = None
-        rc, out = self._run('upload --new-folder foo foo.gpx')
-        self.assertEqual(1, rc)
+        out = self._run('upload --new-folder foo foo.gpx',
+                        expect_fail=True)
         self.assertIn('failed to create folder', out)
         mock_delete.assert_not_called()
 
@@ -687,38 +643,34 @@ class TestShellUnit(unittest.TestCase):
                                         'name': 'foo.gpx',
                                     }}
         mock_put.return_value = None
-        rc, out = self._run('upload --existing-folder folder1 foo.gpx')
-        self.assertEqual(1, rc)
+        out = self._run('upload --existing-folder folder1 foo.gpx',
+                        expect_fail=True)
         self.assertIn('Failed to move', out)
         mock_delete.assert_not_called()
 
     @mock.patch('builtins.open')
     def test_export(self, mock_open):
-        rc, out = self._run('waypoint export wpt1 foo.gpx')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint export wpt1 foo.gpx')
         self.assertIn('Wrote \'foo.gpx\'', out)
         mock_open.assert_called_once_with('foo.gpx', 'wb')
         fake_file = mock_open.return_value.__enter__.return_value
         fake_file.write.assert_called_once_with('object 001 format gpx')
 
-        rc, out = self._run('folder export folder1 foo.gpx')
-        self.assertEqual(0, rc)
+        out = self._run('folder export folder1 foo.gpx')
         self.assertIn('Wrote \'foo.gpx\'', out)
 
-        rc, out = self._run('track export trk1 foo.gpx')
-        self.assertEqual(0, rc)
+        out = self._run('track export trk1 foo.gpx')
         self.assertIn('Wrote \'foo.gpx\'', out)
 
-        rc, out = self._run('folder export folder1 --format kml foo.kml')
-        self.assertEqual(0, rc)
+        out = self._run('folder export folder1 --format kml foo.kml')
         self.assertIn('Wrote \'foo.kml\'', out)
 
-        rc, out = self._run('folder export folder1 --format jpg foo')
-        self.assertEqual(2, rc)
+        out = self._run('folder export folder1 --format jpg foo',
+                        expect_fail=True)
 
     def test_query_hidden(self):
-        rc, out = self._run('query foo')
-        self.assertEqual(2, rc)
+        self._run('query foo',
+                  expect_fail=True)
 
     @mock.patch.dict(os.environ, GAIAGPSCLIENTDEV='y')
     @mock.patch.object(FakeClient, 's')
@@ -729,8 +681,7 @@ class TestShellUnit(unittest.TestCase):
         mock_r.reason = 'OK'
         mock_r.json.return_value = {'object': 'data'}
         mock_s.get.return_value = mock_r
-        rc, out = self._run('query api/objects/waypoint')
-        self.assertEqual(rc, 0)
+        out = self._run('query api/objects/waypoint')
         self.assertIn('200 OK', out)
         self.assertIn('json', out)
         self.assertIn('object', out)
@@ -749,8 +700,7 @@ class TestShellUnit(unittest.TestCase):
         mock_r.content = 'foo'
         mock_s.put.return_value = mock_r
 
-        rc, out = self._run('query api/objects/waypoint -X PUT -a foo=bar -q')
-        self.assertEqual(rc, 0)
+        out = self._run('query api/objects/waypoint -X PUT -a foo=bar -q')
         self.assertNotIn('200 OK', out)
         self.assertNotIn('Content-Type', out)
         self.assertIn('foo', out)
@@ -759,14 +709,12 @@ class TestShellUnit(unittest.TestCase):
             params={'foo': 'bar'})
 
     def test_url(self):
-        rc, out = self._run('waypoint url wpt1')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint url wpt1')
         self.assertEqual('https://www.gaiagps.com/datasummary/waypoint/001',
                          out.strip())
 
     def test_dump(self):
-        rc, out = self._run('waypoint dump wpt1')
-        self.assertEqual(0, rc)
+        out = self._run('waypoint dump wpt1')
         self.assertEqual(
             pprint.pformat(
                 FakeClient().get_object('waypoint', 'wpt1')),
@@ -775,26 +723,24 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch.object(FakeClient, 'test_auth')
     def test_test(self, mock_test):
         mock_test.return_value = True
-        rc, out = self._run('test')
-        self.assertEqual(0, rc)
+        out = self._run('test')
         self.assertEqual('Success!', out.strip())
 
         mock_test.return_value = False
-        rc, out = self._run('test')
-        self.assertEqual(1, rc)
+        out = self._run('test',
+                        expect_fail=True)
         self.assertEqual('Unable to access gaia', out.strip())
 
     @mock.patch.object(FakeClient, 'test_auth')
     def test_with_debug(self, mock_test):
         mock_test.return_value = True
-        rc, out = self._run('--debug test')
-        self.assertEqual(0, rc)
+        self._run('--debug test')
 
     @mock.patch.object(FakeClient, '__init__')
     def test_client_init_login_failure(self, mock_init):
         mock_init.side_effect = Exception()
-        rc, out = self._run('test')
-        self.assertEqual(1, rc)
+        out = self._run('test',
+                        expect_fail=True)
         self.assertIn('Unable to access Gaia', out)
 
     @mock.patch('getpass.getpass')
@@ -805,8 +751,7 @@ class TestShellUnit(unittest.TestCase):
         mock_tty.return_value = True
         mock_getpass.return_value = mock.sentinel.password
         mock_client.return_value = None
-        rc, out = self._run('--user foo@bar.com test')
-        self.assertEqual(0, rc)
+        self._run('--user foo@bar.com test')
         mock_getpass.assert_called_once_with()
         mock_client.assert_called_once_with('foo@bar.com',
                                             mock.sentinel.password,
