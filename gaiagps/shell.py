@@ -146,6 +146,25 @@ def archive_ops(cmds):
                              '(use with --verbose)'))
 
 
+def show_ops(cmds):
+    show = cmds.add_parser('show',
+                           help='Show all available details for a single item')
+    show.add_argument('name',
+                      help='Name (or ID)')
+    show.add_argument('--field-separator', '-f',
+                      help=('Specify a string to separate the key=value '
+                            'fields for easier parsing'))
+    show.add_argument('--only-key', '-K', default=[], action='append',
+                      help=('Only display these keys (specify multiple '
+                            'times for multiple keys)'))
+    show.add_argument('--expand-key', '-k', default=[], action='append',
+                      help=('Expand these keys (specify multiple times '
+                            'for multiple keys) to their full values '
+                            '(or \'all\')'))
+    show.add_argument('--only-vals', '-V', action='store_true',
+                      help=('Only show values'))
+
+
 class Command(object):
     def __init__(self, client, verbose=False):
         self.client = client
@@ -400,6 +419,45 @@ class Command(object):
     def unarchive(self, args):
         return self._archive(args, False)
 
+    def show(self, args):
+        obj = self.get_object(args.name)
+
+        for k in args.only_key:
+            if k not in obj['properties']:
+                print('%s %r does not have key %r' % (
+                    self.objtype.title(), args.name, k))
+                return 1
+
+        if args.field_separator and args.only_vals:
+            print('Options --only-vals and --field-separator are '
+                  'mutally exclusive')
+            return 1
+
+        if args.expand_key == ['all']:
+            args.expand_key = list(obj['properties'].keys())
+
+        props = [(k, obj['properties'][k])
+                 for k in sorted(obj['properties'].keys())
+                 if not args.only_key or k in args.only_key]
+        if args.only_vals:
+            for k, v in props:
+                if v:
+                    print(v)
+        elif args.field_separator:
+            for k, v in props:
+                print('%s%s%s' % (
+                    k, args.field_separator, v))
+        else:
+            table = prettytable.PrettyTable(['Key', 'Value'])
+            table.align['Value'] = 'l'
+            for k, v in props:
+                if isinstance(v, list) and k not in args.expand_key:
+                    v = '(%s items)' % len(v)
+                elif isinstance(v, dict) and k not in args.expand_key:
+                    v = '(%s keys)' % len(v.keys())
+                table.add_row((k, v))
+            print(table)
+
 
 class Waypoint(Command):
     """Manage waypoints
@@ -426,6 +484,7 @@ class Waypoint(Command):
         export_ops(cmds)
         list_and_dump_ops(cmds)
         archive_ops(cmds)
+        show_ops(cmds)
 
         coords = cmds.add_parser('coords', help='Display coordinates')
         coords.add_argument('name', help='Name (or ID)')
@@ -498,6 +557,7 @@ class Track(Command):
         export_ops(cmds)
         list_and_dump_ops(cmds)
         archive_ops(cmds)
+        show_ops(cmds)
 
 
 class Folder(Command):
@@ -522,6 +582,7 @@ class Folder(Command):
         export_ops(cmds)
         list_and_dump_ops(cmds)
         archive_ops(cmds)
+        show_ops(cmds)
 
     def add(self, args):
         if args.existing_folder:
@@ -726,7 +787,7 @@ def main(args=None):
     if 'GAIAGPSCLIENTDEV' in os.environ:
         command_classes.append(Query)
 
-    for ccls in command_classes:
+    for ccls in sorted(command_classes, key=lambda c: c.__name__):
         command_name = ccls.__name__.lower()
         commands[command_name] = ccls
         try:
@@ -749,6 +810,7 @@ def main(args=None):
         root_logger.setLevel(logging.DEBUG)
         import http.client
         http.client.HTTPConnection.debuglevel = 1
+        logging.getLogger('parser').debug('Arguments: %s' % args)
     elif args.verbose:
         root_logger.setLevel(logging.INFO)
 

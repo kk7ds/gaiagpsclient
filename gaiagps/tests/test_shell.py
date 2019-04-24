@@ -84,9 +84,17 @@ class FakeClient(object):
             return 'object %s format %s' % (obj['id'], fmt)
 
         key = 'name' if objtype == 'folder' else 'title'
-        obj['properties'] = {key: obj.pop('title')}
+        obj.setdefault('properties', {})
+        obj['properties'][key] = obj.pop('title')
         if objtype == 'waypoint':
             obj['geometry'] = {'coordinates': [-122.0, 45.5, 123]}
+        elif objtype == 'folder':
+            obj['properties']['waypoints'] = [
+                w for w in self.WAYPOINTS
+                if w['folder'] == obj['id']]
+            obj['properties']['tracks'] = [
+                w for w in self.TRACKS
+                if w['folder'] == obj['id']]
         return obj
 
     def add_object_to_folder(self, folderid, objtype, objid):
@@ -756,3 +764,57 @@ class TestShellUnit(unittest.TestCase):
         mock_client.assert_called_once_with('foo@bar.com',
                                             mock.sentinel.password,
                                             cookies=None)
+
+    def test_show_waypoint(self):
+        out = self._run('waypoint show wpt3')
+        self.assertIn('time_created', out)
+        self.assertIn('title', out)
+
+    def test_show_folder(self):
+        out = self._run('folder show folder1')
+        self.assertRegex(out, r'name.*folder1')
+        self.assertRegex(out, r'\| +waypoints.*\(1 items\) +\|')
+        self.assertRegex(out, r'\| +tracks.*\(0 items\) +\|')
+        self.assertNotIn('[ ', out)
+
+        out = self._run('folder show --only-key name folder1')
+        self.assertRegex(out, r'name.*folder1')
+        self.assertNotIn('waypoints', out)
+        self.assertNotIn('tracks', out)
+
+        out = self._run('folder show --only-key name --only-key tracks '
+                        'folder1')
+        self.assertRegex(out, r'name.*folder1')
+        self.assertRegex(out, r'\| +tracks.*\(0 items\) +\|')
+        self.assertNotIn('waypoints', out)
+
+        out = self._run('folder show -f = folder1')
+        self.assertIn('name=folder1', out)
+        self.assertIn('waypoints=[{', out)
+        self.assertIn('tracks=[]', out)
+
+        out = self._run('folder show --expand-key waypoints folder1')
+        self.assertIn('name', out)
+        self.assertRegex(out, r'\| +waypoints +\| \[{')
+        self.assertNotRegex(out, r'\| +tracks +\| \[\]')
+
+        out = self._run('folder show --expand-key waypoints '
+                        '--expand-key tracks folder1')
+        self.assertIn('name', out)
+        self.assertRegex(out, r'\| +waypoints +\| \[{')
+        self.assertRegex(out, r'\| +tracks +\| \[\]')
+
+        out = self._run('folder show --expand-key all folder1')
+        self.assertIn('name', out)
+        self.assertRegex(out, r'\| +waypoints +\| \[{')
+        self.assertRegex(out, r'\| +tracks +\| \[\]')
+
+        out = self._run('folder show --only-vals folder1')
+        self.assertNotIn('name', out)
+        self.assertIn('folder1', out)
+
+        out = self._run('folder show --only-key foo folder1',
+                        expect_fail=True)
+
+        out = self._run('folder show -f = --only-vals folder1',
+                        expect_fail=True)
