@@ -115,8 +115,8 @@ class TestUtilUnit(unittest.TestCase):
         tree = util.make_tree(self._test_folders())
 
         self.assertEqual('/', tree['properties']['name'])
-        self.assertEqual([], tree['properties']['waypoints'])
-        self.assertEqual([], tree['properties']['tracks'])
+        self.assertEqual({}, tree['properties']['waypoints'])
+        self.assertEqual({}, tree['properties']['tracks'])
         self.assertEqual(['1', '3'],
                          list(sorted(tree['subfolders'].keys())))
 
@@ -179,9 +179,11 @@ class TestUtilUnit(unittest.TestCase):
         for call in mock_print.call_args_list:
             lines.append(call[0][0] if call[0] else '')
 
+        output = ''.join(lines)
+
         # Check some things at the root and at the leaves for proper
         # nesting
-        self.assertIn('DIR ? root1/', lines)
-        self.assertIn('WPT ? testdata', lines)
-        self.assertIn('%sDIR ? subsub/' % (8 * ' '), lines)
-        self.assertIn('%sTRK ? track_202' % (12 * ' '), lines)
+        self.assertIn('root1/', output)
+        self.assertIn('[W] testdata', output)
+        self.assertIn('subsub/', output)
+        self.assertIn('[T] track_202', output)

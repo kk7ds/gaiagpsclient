@@ -22,19 +22,19 @@ class FakeOutput(io.StringIO):
 
 class FakeClient(object):
     FOLDERS = [
-        {'id': '101', 'folder': None, 'title': 'folder1'},
-        {'id': '102', 'folder': None, 'title': 'folder2'},
+        {'id': '101', 'folder': '', 'title': 'folder1'},
+        {'id': '102', 'folder': '', 'title': 'folder2'},
         {'id': '103', 'folder': '101', 'title': 'subfolder'},
-        {'id': '104', 'folder': None, 'title': 'emptyfolder'},
+        {'id': '104', 'folder': '', 'title': 'emptyfolder'},
         ]
     WAYPOINTS = [
-        {'id': '001', 'folder': None, 'title': 'wpt1'},
+        {'id': '001', 'folder': '', 'title': 'wpt1'},
         {'id': '002', 'folder': '101', 'title': 'wpt2', 'deleted': True},
         {'id': '003', 'folder': '103', 'title': 'wpt3',
          'properties': {'time_created': '2015-10-21T23:29:00Z'}},
     ]
     TRACKS = [
-        {'id': '201', 'folder': None, 'title': 'trk1'},
+        {'id': '201', 'folder': '', 'title': 'trk1'},
         {'id': '202', 'folder': '102', 'title': 'trk2'},
     ]
 
@@ -45,7 +45,10 @@ class FakeClient(object):
 
     def list_objects(self, objtype, archived=True):
         def add_props(l):
-            return [dict(d, properties=d.get('properties', {}),
+            return [dict(d,
+                         properties=d.get('properties',
+                                          {'time_created':
+                                           '2019-01-01T02:03:04Z'}),
                          deleted=d.get('deleted', False))
                     for d in l
                     if archived or d.get('deleted', False) is False]
@@ -58,18 +61,28 @@ class FakeClient(object):
             r = []
             for f in self.FOLDERS:
                 r.append(dict(f,
+                              parent=f['folder'] or None,
+                              properties={'time_created':
+                                          '2019-01-01T02:03:04Z'},
                               maps=[],
                               waypoints=[w['id'] for w in self.WAYPOINTS
                                          if w['folder'] == f['id']],
                               tracks=[t['id'] for t in self.TRACKS
                                       if t['folder'] == f['id']],
-                              children=[f['id'] for f in self.FOLDERS
-                                        if f['folder'] == f['id']]))
+                              children=[s['id'] for s in self.FOLDERS
+                                        if s['folder'] == f['id']]))
             return r
         else:
             raise Exception('Invalid type %s' % objtype)
 
     def get_object(self, objtype, name=None, id_=None, fmt=None):
+        def add_props(o):
+            return dict(o,
+                        properties=o.get('properties',
+                                         {'time_created':
+                                          '2019-01-01T02:03:04Z'}),
+                        deleted=o.get('deleted', False))
+
         if name:
             key = 'title'
             value = name
@@ -86,16 +99,18 @@ class FakeClient(object):
         key = 'name' if objtype == 'folder' else 'title'
         obj.setdefault('properties', {})
         obj['properties'][key] = obj.pop('title')
+        obj['properties']['time_created'] = obj['properties'].get(
+            'time_created', '2019-01-01T02:03:04Z')
         if objtype == 'waypoint':
             obj['geometry'] = {'coordinates': [-122.0, 45.5, 123]}
         elif objtype == 'folder':
             obj['properties']['trackstats'] = {}
             obj['properties']['waypoints'] = [
-                w for w in self.WAYPOINTS
+                add_props(w) for w in self.WAYPOINTS
                 if w['folder'] == obj['id']]
             obj['properties']['tracks'] = [
-                w for w in self.TRACKS
-                if w['folder'] == obj['id']]
+                add_props(t) for t in self.TRACKS
+                if t['folder'] == obj['id']]
         return obj
 
     def add_object_to_folder(self, folderid, objtype, objid):
@@ -355,7 +370,8 @@ class TestShellUnit(unittest.TestCase):
                 dry and '--dry-run' or ''))
         self.assertIn('Renaming', out)
         new_wpt = {'id': '002', 'folder': '101',
-                   'properties': {'title': 'wpt7'},
+                   'properties': {'title': 'wpt7',
+                                  'time_created': '2019-01-01T02:03:04Z'},
                    'geometry': {'coordinates': [-122.0, 45.5, 123]},
                    'deleted': True}
         if dry:
@@ -586,10 +602,12 @@ class TestShellUnit(unittest.TestCase):
             self._run('upload --existing-folder folder1 foo.gpx')
 
         expected = copy.deepcopy(FakeClient.FOLDERS[0])
-        expected['children'] = []
+        expected['parent'] = None
+        expected['children'] = ['103']
         expected['maps'] = []
         expected['waypoints'] = ['002', '010', '011']
         expected['tracks'] = ['210', '211']
+        expected['properties'] = {'time_created': '2019-01-01T02:03:04Z'}
         mock_put.assert_called_once_with('folder', expected)
         mock_delete.assert_called_once_with('folder', '105')
 
@@ -629,10 +647,12 @@ class TestShellUnit(unittest.TestCase):
             self._run('upload --new-folder newfolder foo.gpx')
 
         expected = copy.deepcopy(folders_copy[-1])
+        expected['parent'] = None
         expected['children'] = []
         expected['maps'] = []
         expected['waypoints'] = ['010', '011']
         expected['tracks'] = ['210', '211']
+        expected['properties'] = {'time_created': '2019-01-01T02:03:04Z'}
         mock_put.assert_called_once_with('folder', expected)
         mock_delete.assert_called_once_with('folder', '105')
 
@@ -827,3 +847,23 @@ class TestShellUnit(unittest.TestCase):
 
         out = self._run('folder show -f = --only-vals folder1',
                         expect_fail=True)
+
+    def test_tree(self):
+        out = self._run('tree')
+        lines = out.split(os.linesep)
+
+        def level(string):
+            for line in lines:
+                if string in line:
+                    return line.index(string)
+            return None
+
+        self.assertEqual(0, level('/'))
+        self.assertEqual(4, level('folder1/'))
+        self.assertEqual(8, level('subfolder'))
+        self.assertEqual(12, level('[W] wpt3'))
+        self.assertEqual(4, level('[W] wpt1'))
+
+        out = self._run('tree --long')
+        self.assertIn('folder1', out)
+        self.assertIn('21 Oct', out)

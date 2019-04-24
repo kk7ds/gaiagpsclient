@@ -8,7 +8,7 @@ gaiagpsclient
 .. image:: https://readthedocs.org/projects/gaiagpsclient/badge/?version=latest
     :target: https://gaiagpsclient.readthedocs.io/en/latest/?badge=latest
 
-.. image:: https://coveralls.io/repos/github/kk7ds/gaiagpsclient/badge.svg?branch=master&killcache=2
+.. image:: https://coveralls.io/repos/github/kk7ds/gaiagpsclient/badge.svg?branch=master&killcache=3
     :target: https://coveralls.io/github/kk7ds/gaiagpsclient?branch=master
 
 
@@ -145,18 +145,24 @@ Here are some example common operations to demonstrate usage::
 
   # Dump all data in Gaia account (assuming more has been added), like a filesystem
   $ gaiagps tree
-  DIR 18 Apr 2019 22:08:14 Camping Trip/
-      WPT 19 Apr 2019 03:41:53 My Campsite
-      TRK 19 Apr 2019 03:42:17 Cool Hike
-
-  DIR 09 Apr 2019 00:32:11 My Other Folder/
-
-      DIR 19 Apr 2019 00:37:51 A Subfolder/
-          WPT 19 Apr 2019 00:38:03 Some random waypoint
-
-      WPT 11 Apr 2019 01:56:19 Waterfall
-      WPT 11 Apr 2019 01:52:56 Trailhead
-
+  /
+  ├── My Trip/
+      ├── [W] Backup camp spot
+      ├── [W] Backup camp spot in gravel lot
+      ├── [W] Barnhouse Campground
+      ├── [W] Blue Basin Trail Parking
+      ├── [W] Camp spot
+      ├── [W] Cell coverage
+      ├── [W] Ochoco Divide Campground
+      ├── [W] Priest Hole
+      ├── [W] Shoe tree
+      ├── [T] Burnt Ranch and Twickenham to Priest Hole
+      ├── [T] Ochoco Hwy to Priest Hole via Twickenham
+      ├── [T] Priest hole to OR218
+  ├── My Hike/
+      ├── planning/
+          └── [T] Cool Trail
+  └── [W] My House
 
 Testing and Docs
 ----------------

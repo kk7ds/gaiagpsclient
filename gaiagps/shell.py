@@ -637,11 +637,16 @@ class Tree(Command):
     This command will print all waypoints, tracks, and folders in a
     hierarchical layout, purely for visualization purposes.
     """
+    @staticmethod
+    def opts(parser):
+        parser.add_argument('--long', action='store_true',
+                            help='Show long format with dates')
+
     def default(self, args):
         folders = self.client.list_objects('folder')
         root = util.make_tree(folders)
         tree = util.resolve_tree(self.client, root)
-        util.pprint_folder(tree)
+        util.pprint_folder(tree, long=args.long)
 
 
 class Upload(Command):

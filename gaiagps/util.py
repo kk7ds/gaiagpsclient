@@ -113,13 +113,13 @@ def make_tree(folders):
     root = {
         'properties': {
             'name': '/',
-            'waypoints': [],
-            'tracks': [],
+            'waypoints': {},
+            'tracks': {},
         },
     }
 
     for folder in folders:
-        if folder['parent']:
+        if folder.get('parent'):
             parent = folders_by_id[folder['parent']]
         else:
             parent = root
@@ -188,7 +188,7 @@ def name_sort(iterable):
     return sorted(iterable, key=lambda e: e.get('name', ''))
 
 
-def pprint_folder(folder, indent=0):
+def pprint_folder(folder, indent=0, long=False):
     """Print a tree of folder contents.
 
     This prints a pseudo-filesystem view of a folder tree to the
@@ -199,25 +199,38 @@ def pprint_folder(folder, indent=0):
     :param indent: Number of spaces to indent the first level
     :type indent: int
     """
-    pfx = ' ' * indent
+    midchild = b'\xe2\x94\x9c\xe2\x94\x80\xe2\x94\x80'.decode()
+    lastchild = b'\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80'.decode()
+
+    def format_thing(thing):
+        fields = []
+        if long:
+            fields.append(datefmt(thing))
+        fields.append(thing.get('title') or
+                      thing.get('properties')['name'])
+        return ' '.join(fields)
+
+    if indent == 0:
+        print('/')
+
+    pfx = (' ' * indent) + midchild
     for subf in name_sort(folder.get('subfolders', {}).values()):
-        print()
-        print('%sDIR %s %s/' % (
-            pfx, datefmt(subf),
-            subf['properties']['name']))
-        pprint_folder(subf, indent + 4)
+        print('%s %s/' % (pfx, format_thing(subf)))
+        pprint_folder(subf, indent=indent + 4, long=long)
 
-    if folder.get('subfolders'):
-        print()
+    children = (
+        [('W', w) for w in title_sort(
+            folder['properties']['waypoints'])] +
+        [('T', t) for t in title_sort(
+            folder['properties']['tracks'])])
 
-    for waypoint in title_sort(folder['properties']['waypoints']):
-        print('%sWPT %s %s' % (
-            pfx, datefmt(waypoint),
-            waypoint['title']))
-    for track in title_sort(folder['properties']['tracks']):
-        print('%sTRK %s %s' % (
-            pfx, datefmt(track),
-            track['title']))
+    while children:
+        char, child = children.pop(0)
+        if children:
+            pfx = (' ' * indent) + midchild
+        else:
+            pfx = (' ' * indent) + lastchild
+        print('%s [%s] %s' % (pfx, char, format_thing(child)))
 
 
 def validate_lat(lat):
