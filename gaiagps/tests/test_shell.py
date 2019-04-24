@@ -89,6 +89,7 @@ class FakeClient(object):
         if objtype == 'waypoint':
             obj['geometry'] = {'coordinates': [-122.0, 45.5, 123]}
         elif objtype == 'folder':
+            obj['properties']['trackstats'] = {}
             obj['properties']['waypoints'] = [
                 w for w in self.WAYPOINTS
                 if w['folder'] == obj['id']]
@@ -494,6 +495,11 @@ class TestShellUnit(unittest.TestCase):
         self._test_archive_waypoint('unarchive')
 
     @mock.patch.object(FakeClient, 'set_objects_archive')
+    def test_archive_dry_run(self, mock_archive):
+        self._run('waypoint archive --dry-run wpt3')
+        mock_archive.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'set_objects_archive')
     def test_archive_fails(self, mock_archive):
         self._run('waypoint archive',
                   expect_fail=True)
@@ -666,6 +672,9 @@ class TestShellUnit(unittest.TestCase):
 
         out = self._run('folder export folder1 foo.gpx')
         self.assertIn('Wrote \'foo.gpx\'', out)
+
+        out = self._run('folder export folder1 -')
+        self.assertIn('object 101 format gpx', out)
 
         out = self._run('track export trk1 foo.gpx')
         self.assertIn('Wrote \'foo.gpx\'', out)
