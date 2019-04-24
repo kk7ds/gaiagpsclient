@@ -97,6 +97,7 @@ class FakeClient(object):
             return 'object %s format %s' % (obj['id'], fmt)
 
         key = 'name' if objtype == 'folder' else 'title'
+        obj = copy.deepcopy(obj)
         obj.setdefault('properties', {})
         obj['properties'][key] = obj.pop('title')
         obj['properties']['time_created'] = obj['properties'].get(
@@ -189,7 +190,7 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('wpt1', out)
 
     def test_list_match_date(self):
-        out = self._run('waypoint list --match-date 2019-01-01')
+        out = self._run('waypoint list --match-date 2019-03-14')
         self.assertNotIn('wpt1', out)
         self.assertNotIn('wpt2', out)
         self.assertNotIn('wpt3', out)
@@ -280,7 +281,7 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_none(self, mock_add):
-        out = self._run('waypoint move --match-date 2019-01-01 folder2')
+        out = self._run('waypoint move --match-date 2019-03-14 folder2')
         self.assertIn('', out)
         mock_add.assert_not_called()
 
