@@ -162,6 +162,10 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('', expect_fail=True)
         self.assertIn('usage:', out)
 
+    def test_waypoint_list_icons(self):
+        out = self._run('waypoint list-icons')
+        self.assertIn('chemist (chemist-24.png)', out)
+
     def test_waypoint_list_by_id(self):
         out = self._run('waypoint list --by-id')
         self.assertIn('001', out)
@@ -431,6 +435,29 @@ class TestShellUnit(unittest.TestCase):
         mock_create.assert_called_once_with(
             'waypoint',
             util.make_waypoint('foo', 1.5, 2.6, 3))
+
+    @mock.patch.object(FakeClient, 'create_object')
+    def test_add_waypoint_with_extras(self, mock_create):
+        out = self._run('waypoint add foo 1.5 2.6 3 '
+                        '--icon "foo.png" --notes "these are notes"')
+        self.assertEqual('', out)
+        mock_create.assert_called_once_with(
+            'waypoint',
+            util.make_waypoint('foo', 1.5, 2.6,
+                               alt=3,
+                               notes='these are notes',
+                               icon='foo.png'))
+
+    @mock.patch.object(FakeClient, 'create_object')
+    def test_add_waypoint_with_icon_by_alias(self, mock_create):
+        out = self._run('waypoint add foo 1.5 2.6 3 '
+                        '--icon fuel')
+        self.assertEqual('', out)
+        mock_create.assert_called_once_with(
+            'waypoint',
+            util.make_waypoint('foo', 1.5, 2.6,
+                               alt=3,
+                               icon='fuel-24.png'))
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_waypoint_bad_data(self, mock_create):

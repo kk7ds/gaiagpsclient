@@ -357,14 +357,20 @@ class TestClientFunctional(unittest.TestCase):
 
     def test_create_waypoint(self):
         name = _test_name('waypoint')
-        wpt = self.api.create_object('waypoint',
-                                     util.make_waypoint(name, 45.0, -122.0))
+        wpt = self.api.create_object(
+            'waypoint',
+            util.make_waypoint(name, 45.0, -122.0,
+                               alt=123,
+                               notes='These are the notes',
+                               icon='chemist-24.png'))
         self.assertIn('id', wpt)
         self.assertEqual(name, wpt['properties']['title'])
         waypoints = self.api.list_objects('waypoint')
         the_wpt = apiclient.find(waypoints, 'id', wpt['id'])
         self.assertEqual(name, the_wpt['title'])
         self.assertEqual(wpt['id'], the_wpt['id'])
+        self.assertEqual(wpt['properties']['icon'], 'chemist-24.png')
+        self.assertEqual(wpt['properties']['notes'], 'These are the notes')
         self._clean()
 
     def test_folder_move_ops(self):

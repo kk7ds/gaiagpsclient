@@ -7,6 +7,67 @@ import tzlocal
 LOG = logging.getLogger(__name__)
 
 
+ICON_ALIASES = {
+    'blue': 'blue-pin-down.png',
+    'black': 'black-pin.png',
+    'brown': 'brown-pin.png',
+    'gray': 'gray-pin.png',
+    'green': 'green-pin.png',
+    'orange': 'orange-pin.png',
+    'purple': 'purple-pin.png',
+    'red': 'red-pin-down.png',
+    'white': 'white-pin.png',
+    'yellow': 'yellow-pin.png',
+    'airport': 'airport-24.png',
+    'bicycle': 'bicycle-24.png',
+    'building': 'building-24.png',
+    'cafe': 'cafe-24.png',
+    'camera': 'camera-24.png',
+    'campsite': 'campsite-24.png',
+    'car': 'car-24.png',
+    'cemetary': 'cemetary-24.png',
+    'chemist': 'chemist-24.png',
+    'circle': 'circle-24.png',
+    'city': 'city-24.png',
+    'dam': 'dam-24.png',
+    'disability': 'disability-24.png',
+    'dog-park': 'dog-park-24.png',
+    'emergency-telephone': 'emergency-telephone-24.png',
+    'fast-food': 'fast-food-24.png',
+    'fire-station': 'fire-station-24.png',
+    'fuel': 'fuel-24.png',
+    'garden': 'garden-24.png',
+    'golf': 'golf-24.png',
+    'harbor': 'harbor-24.png',
+    'heart': 'heart-24.png',
+    'heliport': 'heliport-24.png',
+    'hospital': 'hospital-24.png',
+    'lighthouse': 'lighthouse-24.png',
+    'lodging': 'lodging-24.png',
+    'logging': 'logging-24.png',
+    'minefield': 'minefield-24.png',
+    'mobilephone': 'mobilephone-24.png',
+    'oil-well': 'oil-well-24.png',
+    'park': 'park-24.png',
+    'parking': 'parking-24.png',
+    'pitch': 'pitch-24.png',
+    'playground': 'playground-24.png',
+    'polling-place': 'polling-place-24.png',
+    'prison': 'prison-24.png',
+    'rail': 'rail-24.png',
+    'restaurant': 'restaurant-24.png',
+    'skiing': 'skiing-24.png',
+    'square': 'square-24.png',
+    'star': 'star-24.png',
+    'suitcase': 'suitcase-24.png',
+    'swimming': 'swimming-24.png',
+    'toilets': 'toilets-24.png',
+    'triangle': 'triangle-24.png',
+    'water': 'water-24.png',
+    'wetland': 'wetland-24.png',
+}
+
+
 def date_parse(thing):
     """Parse a local datetime from a thing with a datestamp.
 
@@ -55,7 +116,7 @@ def datefmt(thing):
         return '?'
 
 
-def make_waypoint(name, lat, lon, alt=0):
+def make_waypoint(name, lat, lon, alt=0, notes='', icon=''):
     """Make a raw waypoint object.
 
     This returns an object suitable for sending to the API.
@@ -66,6 +127,11 @@ def make_waypoint(name, lat, lon, alt=0):
     :type lon: float
     :param alt: A ``float`` representing altitude in meters
     :type alt: float
+    :param notes: A ``str`` representing the notes field
+    :type notes: str
+    :param icon: A ``str`` representing the icon (one of the values
+                 supported by gaiagps, for example ``blue-pin-down.png``)
+    :type icon: str
     :returns: A ``dict`` object
     :rtype: `dict`
     """
@@ -73,6 +139,8 @@ def make_waypoint(name, lat, lon, alt=0):
         'type': 'Feature',
         'properties': {
             'title': name,
+            'notes': notes,
+            'icon': icon,
         },
         'geometry': {
             'type': 'Point',

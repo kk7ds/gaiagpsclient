@@ -183,7 +183,8 @@ class Command(object):
 
     def dispatch(self, parser, args):
         if hasattr(args, 'subcommand') and args.subcommand:
-            return getattr(self, args.subcommand)(args)
+            fn_name = args.subcommand.replace('-', '_')
+            return getattr(self, fn_name)(args)
         elif hasattr(self, 'default'):
             return self.default(args)
         else:
@@ -474,6 +475,8 @@ class Waypoint(Command):
         add.add_argument('longitude', help='Longitude (in decimal degrees)')
         add.add_argument('altitude', help='Altitude (in meters', default=0,
                          nargs='?')
+        add.add_argument('--notes', help='Set the notes field', default='')
+        add.add_argument('--icon', help='Set the icon field', default='')
         add.add_argument('--dry-run', action='store_true',
                          help=('Do not actually add anything '
                                '(use with --verbose)'))
@@ -486,8 +489,15 @@ class Waypoint(Command):
         archive_ops(cmds)
         show_ops(cmds)
 
+        cmds.add_parser('list-icons',
+                        help='List available icons')
+
         coords = cmds.add_parser('coords', help='Display coordinates')
         coords.add_argument('name', help='Name (or ID)')
+
+    def list_icons(self, args):
+        for alias, filename in util.ICON_ALIASES.items():
+            print('%s (%s)' % (alias, filename))
 
     def add(self, args):
         try:
@@ -504,13 +514,19 @@ class Waypoint(Command):
         else:
             folder = None
 
+        if args.icon and args.icon in util.ICON_ALIASES:
+            args.icon = util.ICON_ALIASES[args.icon]
+
         self.verbose('Creating waypoint %r' % args.name)
         if not args.dry_run:
-            wpt = self.client.create_object('waypoint',
-                                            util.make_waypoint(args.name,
-                                                               args.latitude,
-                                                               args.longitude,
-                                                               args.altitude))
+            wpt = self.client.create_object(
+                'waypoint',
+                util.make_waypoint(args.name,
+                                   args.latitude,
+                                   args.longitude,
+                                   alt=args.altitude,
+                                   notes=args.notes,
+                                   icon=args.icon))
         else:
             wpt = {'id': 'dry-run'}
 
