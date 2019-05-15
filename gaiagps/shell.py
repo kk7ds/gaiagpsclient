@@ -8,7 +8,9 @@ import pprint
 import prettytable
 import re
 import os
+import subprocess
 import sys
+import yaml
 
 from gaiagps import apiclient
 from gaiagps import util
@@ -144,6 +146,17 @@ def archive_ops(cmds):
         i.add_argument('--dry-run', action='store_true',
                        help=('Do not actually change anything '
                              '(use with --verbose)'))
+
+
+def edit_ops(cmds):
+    edit = cmds.add_parser('edit',
+                           help='Edit all attributes')
+    edit.add_argument('name', help='Name (or ID)')
+    if util.get_editor():
+        edit.add_argument('-i', '--interactive', action='store_true',
+                          help='Interactively edit properties')
+    edit.add_argument('-f', '--file',
+                      help='Apply edits from a file')
 
 
 def show_ops(cmds):
@@ -480,6 +493,7 @@ class Waypoint(Command):
         add.add_argument('--dry-run', action='store_true',
                          help=('Do not actually add anything '
                                '(use with --verbose)'))
+        edit_ops(cmds)
         folder_ops(add)
         remove_ops(cmds, 'waypoint')
         move_ops(cmds)
@@ -556,6 +570,70 @@ class Waypoint(Command):
         wpt = self.get_object(args.name)
         gc = wpt['geometry']['coordinates']
         print('%.6f,%.6f' % (gc[1], gc[0]))
+
+    def _dump_for_edit(self, wpt, editable, temp_fn):
+        editable_object = {}
+        for top_key in editable:
+            editable_object[top_key] = {
+                sub_key: sub_val for sub_key, sub_val in wpt[top_key].items()
+                if sub_key in editable[top_key]}
+
+        with open(temp_fn, 'w') as f:
+            f.write(yaml.dump(editable_object, default_flow_style=False))
+
+    def _load_for_edit(self, wpt, editable, fn):
+        with open(fn, 'r') as f:
+            editable_object = yaml.load(f.read())
+
+        for top_key in editable_object:
+            if top_key not in editable:
+                raise Exception('Invalid key %r in object' % top_key)
+            for key, val in editable_object[top_key].items():
+                if key not in editable[top_key]:
+                    raise Exception('Invalid key %r/%r in object' % (
+                        top_key, key))
+                wpt[top_key][key] = val
+
+        log = logging.getLogger('waypoint_edit')
+        log.debug('Updating object: %s' % wpt)
+        if self.client.put_object(self.objtype, wpt):
+            self.verbose('Updated object')
+        else:
+            raise Exception('Failed to update object: server rejected changes')
+
+    def edit(self, args):
+        wpt = self.get_object(args.name)
+        temp_fn = 'waypoint.yml'
+
+        editable = {
+            # FIXME: This doesn't seem to 'just work'
+            # 'geometry': ['coordinates'],
+            'properties': ['icon', 'notes', 'public', 'title'],
+        }
+
+        if args.interactive:
+            self._dump_for_edit(wpt, editable, temp_fn)
+            orig_mtime = os.path.getmtime(temp_fn)
+            subprocess.call([util.get_editor(), temp_fn])
+            new_mtime = os.path.getmtime(temp_fn)
+            if orig_mtime == new_mtime:
+                print('No changes made; not updating')
+                return 0
+            try:
+                self._load_for_edit(wpt, editable, temp_fn)
+            except Exception as e:
+                print(e)
+                return 1
+
+        elif args.file:
+            try:
+                self._load_for_edit(wpt, editable, args.file)
+            except Exception as e:
+                print(e)
+                return 1
+        else:
+            self._dump_for_edit(wpt, editable, temp_fn)
+            print('Wrote %r. Edit and then apply with edit -f' % temp_fn)
 
 
 class Track(Command):

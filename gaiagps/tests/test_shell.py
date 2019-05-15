@@ -514,6 +514,85 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('not found', out)
 
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.dump')
+    def test_edit_waypoint_dump(self, mock_dump, mock_open, mock_put):
+        out = self._run('waypoint edit wpt1')
+        self.assertIn('Edit and then apply', out)
+        mock_open.assert_called_once_with('waypoint.yml', 'w')
+        fake_file = mock_open.return_value.__enter__.return_value
+        fake_file.write.assert_called_once_with(mock_dump.return_value)
+        mock_put.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.load')
+    def test_edit_waypoint_load(self, mock_load, mock_open, mock_put):
+        mock_load.return_value = {'properties': {'title': 'newname'}}
+        out = self._run('waypoint edit wpt1 -f waypoint.yml')
+        self.assertEqual('', out)
+        mock_open.assert_called_once_with('waypoint.yml', 'r')
+        fake_file = mock_open.return_value.__enter__.return_value
+        fake_file.read.assert_called_once_with()
+        mock_load.assert_called_once_with(fake_file.read.return_value)
+        updated = copy.deepcopy(FakeClient().get_object('waypoint', 'wpt1'))
+        updated['properties']['title'] = 'newname'
+        mock_put.assert_called_once_with('waypoint', updated)
+
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.load')
+    def test_edit_waypoint_load_errors(self, mock_load, mock_open, mock_put):
+        mock_load.return_value = {'otherkey': 'val'}
+        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('otherkey', out)
+        mock_put.assert_not_called()
+
+        mock_load.return_value = {'properties': {'unknown': 'val'}}
+        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('unknown', out)
+        mock_put.assert_not_called()
+
+        mock_load.return_value = {}
+        mock_put.return_value = False
+        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('server rejected', out)
+
+    @mock.patch('gaiagps.shell.Waypoint._dump_for_edit')
+    @mock.patch('gaiagps.shell.Waypoint._load_for_edit')
+    @mock.patch('subprocess.call')
+    @mock.patch('os.path.getmtime')
+    @mock.patch('gaiagps.util.get_editor')
+    def test_edit_waypoint_interactive(self, mock_editor,
+                                       mock_mtime, mock_call,
+                                       mock_load, mock_dump):
+        mock_mtime.return_value = 123
+        mock_editor.return_value = '/usr/bin/editor'
+        out = self._run('waypoint edit wpt1 -i')
+        mock_call.assert_called_once_with(['/usr/bin/editor', 'waypoint.yml'])
+        self.assertIn('No changes made', out)
+        mock_load.assert_not_called()
+
+        mock_mtime.side_effect = [123, 456]
+        out = self._run('waypoint edit wpt1 -i')
+        self.assertTrue(mock_load.called)
+
+        mock_mtime.side_effect = [123, 456]
+        mock_load.side_effect = Exception('test failed')
+        out = self._run('waypoint edit wpt1 -i',
+                        expect_fail=True)
+        self.assertIn('test failed', out)
+
+    @mock.patch('gaiagps.util.get_editor')
+    def test_edit_waypoint_no_editor(self, mock_editor):
+        mock_editor.return_value = None
+        out = self._run('waypoint edit -h')
+        self.assertNotIn('interactive', out)
+
     @mock.patch.object(FakeClient, 'upload_file')
     def test_upload(self, mock_upload):
         self._run('upload foo.gpx')

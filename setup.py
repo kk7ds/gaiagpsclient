@@ -4,7 +4,7 @@ setup(
     name='gaiagpsclient',
     version='0.1',
     packages=find_packages(),
-    install_requires=['requests', 'prettytable', 'pytz', 'tzlocal'],
+    install_requires=['requests', 'prettytable', 'pytz', 'tzlocal', 'pyyaml'],
     entry_points={
         'console_scripts': ['gaiagps = gaiagps.shell:main'],
     },
