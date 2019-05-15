@@ -1,6 +1,7 @@
 import copy
 import datetime
 import mock
+import os
 import pytz
 import unittest
 
@@ -187,3 +188,21 @@ class TestUtilUnit(unittest.TestCase):
         self.assertIn('[W] testdata', output)
         self.assertIn('subsub/', output)
         self.assertIn('[T] track_202', output)
+
+    @mock.patch('os.environ')
+    @mock.patch('os.access')
+    def test_get_editor(self, mock_access, mock_environ):
+        mock_access.return_value = True
+        mock_environ.get.return_value = '/foo/bar'
+
+        # Editor exists, should return it
+        editor = util.get_editor()
+        self.assertEqual('/foo/bar', editor)
+        mock_environ.get.assert_called_once_with('EDITOR',
+                                                 '/usr/bin/editor')
+        mock_access.assert_called_once_with('/foo/bar', os.X_OK)
+
+        # Does not exist or not executable
+        mock_access.return_value = False
+        editor = util.get_editor()
+        self.assertIsNone(editor)

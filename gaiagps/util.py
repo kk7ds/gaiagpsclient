@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import pytz
 import string
 import tzlocal
@@ -378,3 +379,14 @@ def is_id(idstr):
     """
     return (len(idstr) in (36, 32) and
             all(c in string.hexdigits + '-' for c in idstr))
+
+
+def get_editor():
+    """Return a path to an editor command, if possible.
+
+    :returns: Path to an editor command or None if one is not found
+    """
+
+    editor = os.environ.get('EDITOR', '/usr/bin/editor')
+    if editor and os.access(editor, os.X_OK):
+        return editor
