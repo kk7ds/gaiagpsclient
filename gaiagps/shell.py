@@ -756,10 +756,24 @@ class Upload(Command):
     @staticmethod
     def opts(parser):
         parser.add_argument('filename', help='File to upload')
+        parser.add_argument('--strip-gpx-extensions', action='store_true',
+                            help=('Remove all schema extensions from file '
+                                  'before uploading. This applies only to '
+                                  'GPX files and may help improve '
+                                  'compatibility as gaiagps will choke on '
+                                  'files with extensions.'))
         folder_ops(parser)
 
     def default(self, args):
         log = logging.getLogger('upload')
+
+        if args.strip_gpx_extensions:
+            tmpfile = os.path.join(
+                os.path.dirname(args.filename),
+                'clean-%s' % os.path.basename(args.filename))
+            self.verbose('Stripping GPX extensions from input file')
+            util.strip_gpx_extensions(args.filename, tmpfile)
+            args.filename = tmpfile
 
         if args.existing_folder:
             dst_folder = self.get_object(args.existing_folder,

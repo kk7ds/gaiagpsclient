@@ -598,6 +598,14 @@ class TestShellUnit(unittest.TestCase):
         self._run('upload foo.gpx')
         mock_upload.assert_called_once_with('foo.gpx')
 
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch('gaiagps.util.strip_gpx_extensions')
+    def test_upload_strip_gpx_extensions(self, mock_strip, mock_upload):
+        self._run('upload --strip-gpx-extensions /path/to/foo.gpx')
+        mock_strip.assert_called_once_with('/path/to/foo.gpx',
+                                           '/path/to/clean-foo.gpx')
+        mock_upload.assert_called_once_with('/path/to/clean-foo.gpx')
+
     @mock.patch.object(FakeClient, 'set_objects_archive')
     def _test_archive_waypoint(self, cmd, mock_archive):
         args = [

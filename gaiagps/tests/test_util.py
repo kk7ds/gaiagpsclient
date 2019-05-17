@@ -1,5 +1,6 @@
 import copy
 import datetime
+import io
 import mock
 import os
 import pytz
@@ -206,3 +207,61 @@ class TestUtilUnit(unittest.TestCase):
         mock_access.return_value = False
         editor = util.get_editor()
         self.assertIsNone(editor)
+
+    @mock.patch('builtins.open')
+    def test_strip_gpx_extensions(self, mock_open):
+        input = io.BytesIO(GPX_WITH_EXTENSIONS.encode())
+        output = io.StringIO()
+        mock_open.side_effect = [input, output]
+
+        # Avoid letting the StringIO be closed and freeing the buffer
+        with mock.patch.object(output, 'close'):
+            util.strip_gpx_extensions('input-file', 'output-file')
+
+        self.assertIn('<wpt', output.getvalue())
+        self.assertNotIn('<extensions>', output.getvalue())
+
+    @mock.patch('builtins.open')
+    def test_strip_gpx_extensions_errors(self, mock_open):
+        input = io.BytesIO(b'foo')
+        mock_open.return_value = input
+        self.assertRaises(Exception,
+                          util.strip_gpx_extensions,
+                          'input-file', 'output-file')
+
+        input = io.BytesIO(b'<kml></kml>')
+        mock_open.return_value = input
+        self.assertRaises(Exception,
+                          util.strip_gpx_extensions,
+                          'input-file', 'output-file')
+
+
+GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:wptx1="http://www.garmin.com/xmlschemas/WaypointExtension/v1" xmlns:gpxtrx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:trp="http://www.garmin.com/xmlschemas/TripExtensions/v1" xmlns:adv="http://www.garmin.com/xmlschemas/AdventuresExtensions/v1" xmlns:prs="http://www.garmin.com/xmlschemas/PressureExtension/v1" xmlns:tmd="http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1" xmlns:vptm="http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1" xmlns:ctx="http://www.garmin.com/xmlschemas/CreationTimeExtension/v1" xmlns:gpxacc="http://www.garmin.com/xmlschemas/AccelerationExtension/v1" xmlns:gpxpx="http://www.garmin.com/xmlschemas/PowerExtension/v1" xmlns:vidx1="http://www.garmin.com/xmlschemas/VideoExtension/v1" creator="Garmin Desktop App" version="1.1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/WaypointExtension/v1 http://www8.garmin.com/xmlschemas/WaypointExtensionv1.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/ActivityExtension/v1 http://www8.garmin.com/xmlschemas/ActivityExtensionv1.xsd http://www.garmin.com/xmlschemas/AdventuresExtensions/v1 http://www8.garmin.com/xmlschemas/AdventuresExtensionv1.xsd http://www.garmin.com/xmlschemas/PressureExtension/v1 http://www.garmin.com/xmlschemas/PressureExtensionv1.xsd http://www.garmin.com/xmlschemas/TripExtensions/v1 http://www.garmin.com/xmlschemas/TripExtensionsv1.xsd http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1 http://www.garmin.com/xmlschemas/TripMetaDataExtensionsv1.xsd http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1 http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensionsv1.xsd http://www.garmin.com/xmlschemas/CreationTimeExtension/v1 http://www.garmin.com/xmlschemas/CreationTimeExtensionsv1.xsd http://www.garmin.com/xmlschemas/AccelerationExtension/v1 http://www.garmin.com/xmlschemas/AccelerationExtensionv1.xsd http://www.garmin.com/xmlschemas/PowerExtension/v1 http://www.garmin.com/xmlschemas/PowerExtensionv1.xsd http://www.garmin.com/xmlschemas/VideoExtension/v1 http://www.garmin.com/xmlschemas/VideoExtensionv1.xsd">
+  <metadata>
+    <link href="http://www.garmin.com">
+      <text>Garmin International</text>
+    </link>
+    <time>2019-05-14T21:19:51Z</time>
+    <bounds maxlat="43.528282642364502" maxlon="-120.645139217376709" minlat="42.847406901419163" minlon="-121.981050968170166"/>
+  </metadata>
+  <wpt lat="43.1944465264678" lon="-121.594601729884744">
+    <ele>1621.01171875</ele>
+    <time>2015-01-03T19:46:03Z</time>
+    <name>10</name>
+    <sym>Flag, Blue</sym>
+    <type>user</type>
+    <extensions>
+      <gpxx:WaypointExtension>
+        <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+      </gpxx:WaypointExtension>
+      <wptx1:WaypointExtension>
+        <wptx1:DisplayMode>SymbolAndName</wptx1:DisplayMode>
+      </wptx1:WaypointExtension>
+      <ctx:CreationTimeExtension>
+        <ctx:CreationTime>2015-01-03T19:46:03Z</ctx:CreationTime>
+      </ctx:CreationTimeExtension>
+    </extensions>
+  </wpt>
+</gpx>
+"""  # noqa

@@ -4,6 +4,7 @@ import os
 import pytz
 import string
 import tzlocal
+from xml.etree import ElementTree as ET
 
 LOG = logging.getLogger(__name__)
 
@@ -390,3 +391,43 @@ def get_editor():
     editor = os.environ.get('EDITOR', '/usr/bin/editor')
     if editor and os.access(editor, os.X_OK):
         return editor
+
+
+def strip_gpx_extensions(source_file, dest_file):
+    """Strip any GPX extensions from a file.
+
+    Remove any GPX extensions from source_file and write the
+    result to dest_file.
+
+    :param source_file: Source filename
+    :type source_file: str
+    :param dest_file: Destination filename
+    :type dest_file: str
+    :raises Exception: If the source file is not a GPX file
+    """
+    namespaces = {'': 'http://www.topografix.com/GPX/1/1'}
+    for ns, url in namespaces.items():
+        ET.register_namespace(ns, url)
+
+    try:
+        tree = ET.parse(source_file)
+    except ET.ParseError:
+        raise Exception('Input is not a GPX file')
+
+    root = tree.getroot()
+    if root.tag != '{http://www.topografix.com/GPX/1/1}gpx':
+        raise Exception('Input is not a GPX file')
+
+    # Remove the extension schemas
+    xsi = '{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'
+    nslist = root.attrib[xsi]
+    nslist = ' '.join(x for x in nslist.split() if 'GPX/1/1' in x)
+    root.attrib[xsi] = nslist
+
+    # For each, wpt, trk, etc, remove the <extensions> if present
+    for elem in root.findall('*'):
+        ext = elem.find('{http://www.topografix.com/GPX/1/1}extensions')
+        if ext:
+            elem.remove(ext)
+
+    tree.write(dest_file)
