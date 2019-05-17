@@ -178,6 +178,10 @@ def edit_ops(cmds):
         when doing this that the format of the file is
         maintained and that nothing else is modifying the
         server side during the edit.
+
+        Example of editing two waypoints:
+
+        `gaiagps waypoint edit -i Camp1 Camp2`
         """))
 
     edit.add_argument('name', help='Name (or ID)', nargs='*')
