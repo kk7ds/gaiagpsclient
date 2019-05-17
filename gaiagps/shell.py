@@ -10,6 +10,7 @@ import re
 import os
 import subprocess
 import sys
+import traceback
 import yaml
 
 from gaiagps import apiclient
@@ -149,14 +150,29 @@ def archive_ops(cmds):
 
 
 def edit_ops(cmds):
-    edit = cmds.add_parser('edit',
-                           help='Edit all attributes')
-    edit.add_argument('name', help='Name (or ID)')
+    edit = cmds.add_parser(
+        'edit',
+        help='Edit all attributes of one or more items',
+        description=("""
+        This command will download one or more items into
+        an editable text file, and allow you to upload those
+        changes back to the server in bulk. Interactive mode
+        will automate that into a single process, spawning an
+        editor between download and upload. Care must be taken
+        when doing this that the format of the file is
+        maintained and that nothing else is modifying the
+        server side during the edit.
+        """))
+
+    edit.add_argument('name', help='Name (or ID)', nargs='+')
     if util.get_editor():
         edit.add_argument('-i', '--interactive', action='store_true',
                           help='Interactively edit properties')
     edit.add_argument('-f', '--file',
                       help='Apply edits from a file')
+    edit.add_argument('--match', action='store_true',
+                      help=('Treat names as regular expressions and include '
+                            'all matches'))
 
 
 def show_ops(cmds):
@@ -571,48 +587,117 @@ class Waypoint(Command):
         gc = wpt['geometry']['coordinates']
         print('%.6f,%.6f' % (gc[1], gc[0]))
 
-    def _dump_for_edit(self, wpt, editable, temp_fn):
-        editable_object = {}
-        for top_key in editable:
-            editable_object[top_key] = {
-                sub_key: sub_val for sub_key, sub_val in wpt[top_key].items()
-                if sub_key in editable[top_key]}
+    def _dump_for_edit(self, wpts, editable, temp_fn):
+        editable_objects = []
+        for wpt in wpts:
+            wpt = self.client.get_object(self.objtype, id_=wpt['id'])
+            editable_object = {}
+            for top_key in editable:
+                if editable[top_key] is True:
+                    editable_object[top_key] = wpt[top_key]
+                else:
+                    editable_object[top_key] = {
+                        sub_key: sub_val
+                        for sub_key, sub_val in wpt[top_key].items()
+                        if editable[top_key] is True or
+                        sub_key in editable[top_key]}
+            editable_objects.append(editable_object)
 
-        with open(temp_fn, 'w') as f:
-            f.write(yaml.dump(editable_object, default_flow_style=False))
+        if editable_objects:
+            with open(temp_fn, 'w') as f:
+                f.write(yaml.dump(editable_objects, default_flow_style=False))
+        return len(editable_objects)
 
-    def _load_for_edit(self, wpt, editable, fn):
+    def _load_for_edit(self, wpts, editable, fn):
+        log = logging.getLogger('shell_edit')
         with open(fn, 'r') as f:
-            editable_object = yaml.load(f.read())
+            editable_objects = yaml.load(f.read())
 
-        for top_key in editable_object:
-            if top_key not in editable:
-                raise Exception('Invalid key %r in object' % top_key)
-            for key, val in editable_object[top_key].items():
-                if key not in editable[top_key]:
-                    raise Exception('Invalid key %r/%r in object' % (
-                        top_key, key))
-                wpt[top_key][key] = val
+        if not isinstance(editable_objects, list):
+            raise Exception('Input file format is incorrect. The top level '
+                            'YAML must be a list')
 
-        log = logging.getLogger('waypoint_edit')
-        log.debug('Updating object: %s' % wpt)
-        if self.client.put_object(self.objtype, wpt):
-            self.verbose('Updated object')
-        else:
-            raise Exception('Failed to update object: server rejected changes')
+        if len(editable_objects) != len(wpts):
+            raise Exception(
+                ('Input file contains %i items but matched %i from the '
+                 'server. Adding and deleting items via the edit process '
+                 'is not supported.') % (len(editable_objects), len(wpts)))
+
+        def rev_match(w1, w2):
+            try:
+                return (w1['properties']['revision'] ==
+                        w2['properties']['revision'])
+            except KeyError:
+                return False
+
+        for i, editable_object in enumerate(editable_objects):
+            wpt = self.client.get_object(self.objtype, id_=wpts[i]['id'])
+
+            # We stored the revision in the waypoint file,
+            # and we are processing a stable ordering. Compare
+            # the n'th server waypoint's revision with the n'th
+            # in the file to make sure we have not gotten out of
+            # sync with the server (as best we can)
+            if not rev_match(wpt, editable_object):
+                log.debug('Server revision is %r, local is %r' % (
+                    wpt['properties']['revision'],
+                    editable_object.get('properties', {}).get('revision')))
+                print(('Waypoint %i (%s) has changed on the server or '
+                       'lists are out of sync; unable to apply changes') % (
+                           i + 1, wpt['properties']['title']))
+                continue
+
+            if wpt['id'] != editable_object.get('id'):
+                log.debug('Server id is %r, local is %r' % (
+                    wpt['id'], editable_object.get('id')))
+                print(('Waypoint %i (%s) id does not match the server;. '
+                       'Unable to apply changes') % (
+                           i, wpt['properties']['title']))
+                continue
+
+            for top_key in editable_object:
+                if top_key not in editable:
+                    raise Exception('Invalid key %r in object' % top_key)
+                if not isinstance(editable[top_key], list):
+                    # Skip any top keys that are not lists as not editable
+                    log.debug('Skipping key %r' % top_key)
+                    continue
+                for key, val in editable_object[top_key].items():
+                    if key not in editable[top_key]:
+                        raise Exception('Invalid key %r/%r in object' % (
+                            top_key, key))
+                    wpt[top_key][key] = val
+
+            log.debug('Updating object: %s' % wpt)
+            if self.client.put_object(self.objtype, wpt):
+                self.verbose('Updated object %i (%s)' % (
+                    i, wpt['properties']['title']))
+            else:
+                raise Exception(('Failed to update object %i (%s): '
+                                 'server rejected changes') % (
+                                     i, wpt['properties']['title']))
 
     def edit(self, args):
-        wpt = self.get_object(args.name)
-        temp_fn = 'waypoint.yml'
+        log = logging.getLogger('shell_edit')
+        wpts = self.find_objects(args.name, match=args.match)
+        if not wpts:
+            print('No objects matched criteria.')
+            return 1
+
+        # Make sure we get a stable sort order across GET/PUT
+        wpts = sorted(wpts, key=lambda w: w['id'])
+
+        temp_fn = 'waypoints.yml'
 
         editable = {
             # FIXME: This doesn't seem to 'just work'
             # 'geometry': ['coordinates'],
-            'properties': ['icon', 'notes', 'public', 'title'],
+            'id': True,
+            'properties': ['icon', 'notes', 'public', 'title', 'revision'],
         }
 
         if args.interactive:
-            self._dump_for_edit(wpt, editable, temp_fn)
+            self._dump_for_edit(wpts, editable, temp_fn)
             orig_mtime = os.path.getmtime(temp_fn)
             subprocess.call([util.get_editor(), temp_fn])
             new_mtime = os.path.getmtime(temp_fn)
@@ -620,20 +705,23 @@ class Waypoint(Command):
                 print('No changes made; not updating')
                 return 0
             try:
-                self._load_for_edit(wpt, editable, temp_fn)
+                self._load_for_edit(wpts, editable, temp_fn)
             except Exception as e:
+                log.debug(traceback.format_exc())
                 print(e)
                 return 1
 
         elif args.file:
             try:
-                self._load_for_edit(wpt, editable, args.file)
+                self._load_for_edit(wpts, editable, args.file)
             except Exception as e:
+                log.debug(traceback.format_exc())
                 print(e)
                 return 1
         else:
-            self._dump_for_edit(wpt, editable, temp_fn)
-            print('Wrote %r. Edit and then apply with edit -f' % temp_fn)
+            count = self._dump_for_edit(wpts, editable, temp_fn)
+            print(('Wrote %i waypoints to %r. Edit and then apply '
+                   'with edit -f') % (count, temp_fn))
 
 
 class Track(Command):
@@ -955,6 +1043,7 @@ def main(args=None):
         try:
             return int(command.dispatch(parser, args) or 0)
         except (apiclient.NotFound, RuntimeError) as e:
+            root_logger.debug(traceback.format_exc())
             print(e)
             return 1
 

@@ -31,7 +31,8 @@ class FakeClient(object):
         {'id': '001', 'folder': '', 'title': 'wpt1'},
         {'id': '002', 'folder': '101', 'title': 'wpt2', 'deleted': True},
         {'id': '003', 'folder': '103', 'title': 'wpt3',
-         'properties': {'time_created': '2015-10-21T23:29:00Z'}},
+         'properties': {'time_created': '2015-10-21T23:29:00Z',
+                        'revision': 6}},
     ]
     TRACKS = [
         {'id': '201', 'folder': '', 'title': 'trk1'},
@@ -520,7 +521,7 @@ class TestShellUnit(unittest.TestCase):
     def test_edit_waypoint_dump(self, mock_dump, mock_open, mock_put):
         out = self._run('waypoint edit wpt1')
         self.assertIn('Edit and then apply', out)
-        mock_open.assert_called_once_with('waypoint.yml', 'w')
+        mock_open.assert_called_once_with('waypoints.yml', 'w')
         fake_file = mock_open.return_value.__enter__.return_value
         fake_file.write.assert_called_once_with(mock_dump.return_value)
         mock_put.assert_not_called()
@@ -529,14 +530,17 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch('builtins.open')
     @mock.patch('yaml.load')
     def test_edit_waypoint_load(self, mock_load, mock_open, mock_put):
-        mock_load.return_value = {'properties': {'title': 'newname'}}
-        out = self._run('waypoint edit wpt1 -f waypoint.yml')
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {
+                                       'title': 'newname',
+                                       'revision': 6}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml')
         self.assertEqual('', out)
         mock_open.assert_called_once_with('waypoint.yml', 'r')
         fake_file = mock_open.return_value.__enter__.return_value
         fake_file.read.assert_called_once_with()
         mock_load.assert_called_once_with(fake_file.read.return_value)
-        updated = copy.deepcopy(FakeClient().get_object('waypoint', 'wpt1'))
+        updated = copy.deepcopy(FakeClient().get_object('waypoint', 'wpt3'))
         updated['properties']['title'] = 'newname'
         mock_put.assert_called_once_with('waypoint', updated)
 
@@ -544,23 +548,68 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch('builtins.open')
     @mock.patch('yaml.load')
     def test_edit_waypoint_load_errors(self, mock_load, mock_open, mock_put):
-        mock_load.return_value = {'otherkey': 'val'}
-        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+        # Additional top-level key disallowed
+        mock_load.return_value = [{'otherkey': 'val',
+                                   'id': '003',
+                                   'properties': {'revision': 6}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
                         expect_fail=True)
         self.assertIn('otherkey', out)
         mock_put.assert_not_called()
 
-        mock_load.return_value = {'properties': {'unknown': 'val'}}
-        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+        # Additional property key disallowed
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {'revision': 6,
+                                                  'unknown': 'val'}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
                         expect_fail=True)
         self.assertIn('unknown', out)
         mock_put.assert_not_called()
 
-        mock_load.return_value = {}
+        # Server rejected for whatever reason
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {'revision': 6,
+                                                  'title': 'val'}}]
         mock_put.return_value = False
-        out = self._run('waypoint edit wpt1 -f waypoint.yml',
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
                         expect_fail=True)
         self.assertIn('server rejected', out)
+
+        # YAML top-level is not a list
+        mock_load.return_value = {'id': '003'}
+        mock_put.return_value = False
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('format is incorrect', out)
+
+        # Revision mismatch between local and server
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {'revision': 5,
+                                                  'title': 'val'}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml')
+        self.assertIn('changed on the server', out)
+
+        # User deleted revision
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {'title': 'val'}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml')
+        self.assertIn('changed on the server', out)
+
+        # ID mismatch
+        mock_load.return_value = [{'id': '002',
+                                   'properties': {'revision': 6,
+                                                  'title': 'val'}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml')
+        self.assertIn('id does not match', out)
+
+        # Length mismatch between file and server query
+        mock_load.return_value = [{'id': '002',
+                                   'properties': {'revision': 6,
+                                                  'title': 'val'}},
+                                  'another thing']
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('items but matched', out)
 
     @mock.patch('gaiagps.shell.Waypoint._dump_for_edit')
     @mock.patch('gaiagps.shell.Waypoint._load_for_edit')
@@ -572,18 +621,18 @@ class TestShellUnit(unittest.TestCase):
                                        mock_load, mock_dump):
         mock_mtime.return_value = 123
         mock_editor.return_value = '/usr/bin/editor'
-        out = self._run('waypoint edit wpt1 -i')
-        mock_call.assert_called_once_with(['/usr/bin/editor', 'waypoint.yml'])
+        out = self._run('waypoint edit wpt3 -i')
+        mock_call.assert_called_once_with(['/usr/bin/editor', 'waypoints.yml'])
         self.assertIn('No changes made', out)
         mock_load.assert_not_called()
 
         mock_mtime.side_effect = [123, 456]
-        out = self._run('waypoint edit wpt1 -i')
+        out = self._run('waypoint edit wpt3 -i')
         self.assertTrue(mock_load.called)
 
         mock_mtime.side_effect = [123, 456]
         mock_load.side_effect = Exception('test failed')
-        out = self._run('waypoint edit wpt1 -i',
+        out = self._run('waypoint edit wpt3 -i',
                         expect_fail=True)
         self.assertIn('test failed', out)
 
@@ -592,6 +641,11 @@ class TestShellUnit(unittest.TestCase):
         mock_editor.return_value = None
         out = self._run('waypoint edit -h')
         self.assertNotIn('interactive', out)
+
+    def test_edit_waypoint_no_match(self):
+        out = self._run('waypoint edit --match notathing',
+                        expect_fail=True)
+        self.assertIn('No objects matched criteria',  out)
 
     @mock.patch.object(FakeClient, 'upload_file')
     def test_upload(self, mock_upload):
