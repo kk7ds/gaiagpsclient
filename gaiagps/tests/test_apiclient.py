@@ -256,6 +256,19 @@ class TestClientUnit(unittest.TestCase):
                 allow_redirects=True)
             mock_open.assert_called_once_with('path/to/foo.gpx', 'rb')
 
+    @mock.patch('builtins.open')
+    def test_upload_queued(self, mock_open):
+        api = self.get_api()
+
+        self.requests.post.return_value.content = (
+            b'blah blah '
+            b'File uploaded to queue'
+            b' blah blah')
+        with mock.patch.object(api, 'get_object') as mock_get:
+            folder = api.upload_file('path/to/foo.gpx')
+            self.assertIsNone(folder)
+            mock_get.assert_not_called()
+
     def test_gurl(self):
         self.assertEqual('https://www.gaiagps.com/a/b/',
                          apiclient.gurl('a', 'b'))

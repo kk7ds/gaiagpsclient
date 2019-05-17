@@ -606,6 +606,14 @@ class TestShellUnit(unittest.TestCase):
                                            '/path/to/clean-foo.gpx')
         mock_upload.assert_called_once_with('/path/to/clean-foo.gpx')
 
+    @mock.patch.object(FakeClient, 'get_object')
+    @mock.patch.object(FakeClient, 'upload_file')
+    def test_upload_queued(self, mock_upload, mock_get):
+        mock_upload.return_value = None
+        out = self._run('upload --existing-folder foo foo.gpx')
+        self.assertIn('upload has been queued', out)
+        self.assertIn('Unable to move', out)
+
     @mock.patch.object(FakeClient, 'set_objects_archive')
     def _test_archive_waypoint(self, cmd, mock_archive):
         args = [

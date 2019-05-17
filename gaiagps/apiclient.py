@@ -357,14 +357,22 @@ class GaiaClient(object):
         :type filename: str
         :returns: The resulting folder object that is created to hold the
                   contents of the file, as you would get from
-                  :func:`~get_object`.
+                  :func:`~get_object`. None is returned if the server reports
+                  that the upload was queued for processing.
         :rtype: `dict`
         """
         files = {'files': open(filename, 'rb')}
+        name = os.path.basename(filename)
         r = self.s.post(gurl('upload'), files=files,
-                        data={'name': os.path.basename(filename)},
+                        data={'name': name},
                         allow_redirects=True)
         _logresp(r)
+        if b'File uploaded to queue' in r.content:
+            # This is unfortunately very  fragile, but there is not
+            # much else we can do
+            LOG.debug('Upload was queued')
+            return None
+
         folder_id = r.url.rstrip('/').split('/')[-1]
         LOG.debug('Upload URL is %s, folder id is %s' % (r.url, folder_id))
         return self.get_object('folder', id_=folder_id)

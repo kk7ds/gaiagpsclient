@@ -782,6 +782,14 @@ class Upload(Command):
             dst_folder = None
         new_folder = self.client.upload_file(args.filename)
 
+        if not new_folder:
+            print('File upload has been queued at the server and '
+                  'may take time to appear.')
+            if dst_folder:
+                print('Unable to move to destination folder until '
+                      'processing is complete.')
+            return
+
         log.debug(new_folder)
         log.info('Uploaded file to new folder %s/%s' % (
             new_folder['properties']['name'],
