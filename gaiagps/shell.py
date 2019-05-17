@@ -512,6 +512,184 @@ class Command(object):
                 table.add_row((k, v))
             print(table)
 
+    def _dump_for_edit(self, objs, editable, temp_fn):
+        """Dump objects to yaml.
+
+        editable is a list paths into each object, dicts and lists. Example:
+
+        ["id",                        # obj['id']
+         "properties/foo",            # obj['properties']['foo']
+         "features/0/properties/bar", # obj['features'][0]['properties']['bar']
+        ]
+        """
+        editable_objects = []
+        for obj in objs:
+            obj = self.client.get_object(self.objtype, id_=obj['id'])
+            editable_object = {}
+            for path in editable:
+                # Pointer to which part of the object we have drilled
+                # down to
+                tmp = obj
+
+                # Pointer to the current level in editable_object we are
+                # constructing
+                parent = editable_object
+
+                # Drill through the path, moving both pointers down,
+                # and only copying from the object to editable_object
+                # for the leaves
+                elements = path.split('/')
+                while elements:
+                    element = elements.pop(0)
+                    if element.isdigit():
+                        element = int(element)
+                        childtype = type(tmp[element])
+                        tmp = tmp[element]
+                    else:
+                        childtype = type(tmp[element])
+                        tmp = tmp.get(element, {})
+                    if elements:
+                        try:
+                            parent.setdefault(element, childtype())
+                        except AttributeError:
+                            if len(parent) < element + 1:
+                                parent.append(childtype())
+                    else:
+                        # Assume leaf parent is a dict
+                        parent[element] = tmp
+                    parent = parent[element]
+            editable_objects.append(editable_object)
+
+        if editable_objects:
+            with open(temp_fn, 'w') as f:
+                f.write(yaml.dump(editable_objects, default_flow_style=False))
+        return len(editable_objects)
+
+    def _load_for_edit(self, objs, editable, fn):
+        # See definition of editable above in _dump_for_edit()
+        log = logging.getLogger('shell_edit')
+        with open(fn, 'r') as f:
+            editable_objects = yaml.load(f.read())
+
+        if not isinstance(editable_objects, list):
+            raise Exception('Input file format is incorrect. The top level '
+                            'YAML must be a list')
+
+        if len(editable_objects) != len(objs):
+            raise Exception(
+                ('Input file contains %i items but matched %i from the '
+                 'server. Adding and deleting items via the edit process '
+                 'is not supported.') % (len(editable_objects), len(objs)))
+
+        for i, editable_object in enumerate(editable_objects):
+            obj = self.client.get_object(self.objtype, id_=objs[i]['id'])
+
+            # We stored the revision in the waypoint file,
+            # and we are processing a stable ordering. Compare
+            # the n'th server waypoint's revision with the n'th
+            # in the file to make sure we have not gotten out of
+            # sync with the server (as best we can)
+            try:
+                self._rev_match(obj, editable_object)
+            except Exception as e:
+                print('%s #%i: %s' % (self.objtype.title(), i, e))
+                continue
+
+            if obj['id'] != editable_object.get('id'):
+                log.debug('Server id is %r, local is %r' % (
+                    obj['id'], editable_object.get('id')))
+                print(('Object %i (%s) id does not match the server;. '
+                       'Unable to apply changes') % (
+                           i, obj['properties']['title']))
+                continue
+
+            for path in editable:
+                elements = path.split('/')
+                src = editable_object
+                dst = obj
+                while len(elements) > 1:
+                    element = elements.pop(0)
+                    if element.isdigit():
+                        element = int(element)
+                    src = src[element]
+                    dst = dst[element]
+                leaf = elements[0]
+
+                try:
+                    dst[leaf] = src[leaf]
+                except KeyError:
+                    # User removed this key, so just skip
+                    raise Exception(
+                        'Missing key %s from object #%i. '
+                        'Deleting values during edit is not allowed.' % (path,
+                                                                         i))
+
+            log.debug('Updating object: %s' % obj)
+            try:
+                title = obj['properties']['title']
+            except KeyError:
+                title = obj['features'][0]['properties']['title']
+            if self.client.put_object(self.objtype, obj):
+                self.verbose('Updated object %i (%s)' % (i, title))
+            else:
+                raise Exception(('Failed to update object %i (%s): '
+                                 'server rejected changes') % (i, title))
+
+    def _edit(self, args, editable):
+        if args.in_folder:
+            folder = self.get_object(args.in_folder, objtype='folder')
+        else:
+            folder = None
+
+        log = logging.getLogger('shell_edit')
+        try:
+            objs = self.find_objects(args.name, match=args.match)
+        except _Safety:
+            if folder:
+                objs = [o for o in self.client.list_objects(self.objtype)
+                        if o['folder'] == folder['id']]
+            else:
+                objs = []
+
+        # Make sure we get a stable sort order across GET/PUT
+        objs = sorted(objs, key=lambda o: o['id'])
+        if folder:
+            objs = [obj for obj in objs if obj['folder'] == folder['id']]
+            log.debug('Limiting to folder %s: %s' % (folder['id'], len(objs)))
+
+        if not objs:
+            print('No objects matched criteria.')
+            return 1
+
+        temp_fn = '%ss.yml' % self.objtype
+
+        if args.interactive:
+            self._dump_for_edit(objs, editable, temp_fn)
+            orig_mtime = os.path.getmtime(temp_fn)
+            subprocess.call([util.get_editor(), temp_fn])
+            new_mtime = os.path.getmtime(temp_fn)
+            if orig_mtime == new_mtime:
+                print('No changes made; not updating')
+                return 0
+            try:
+                self._load_for_edit(objs, editable, temp_fn)
+            except Exception as e:
+                log.debug(traceback.format_exc())
+                print(e)
+                return 1
+
+        elif args.file:
+            try:
+                self._load_for_edit(objs, editable, args.file)
+            except Exception as e:
+                log.debug(traceback.format_exc())
+                print(e)
+                return 1
+        else:
+            count = self._dump_for_edit(objs, editable, temp_fn)
+            print(('Wrote %i %ss to %r. Edit and then apply '
+                   'with edit -f') % (count, self.objtype, temp_fn))
+
 
 class Waypoint(Command):
     """Manage waypoints
@@ -611,157 +789,23 @@ class Waypoint(Command):
         gc = wpt['geometry']['coordinates']
         print('%.6f,%.6f' % (gc[1], gc[0]))
 
-    def _dump_for_edit(self, wpts, editable, temp_fn):
-        editable_objects = []
-        for wpt in wpts:
-            wpt = self.client.get_object(self.objtype, id_=wpt['id'])
-            editable_object = {}
-            for top_key in editable:
-                if editable[top_key] is True:
-                    editable_object[top_key] = wpt[top_key]
-                else:
-                    editable_object[top_key] = {
-                        sub_key: sub_val
-                        for sub_key, sub_val in wpt[top_key].items()
-                        if editable[top_key] is True or
-                        sub_key in editable[top_key]}
-            editable_objects.append(editable_object)
-
-        if editable_objects:
-            with open(temp_fn, 'w') as f:
-                f.write(yaml.dump(editable_objects, default_flow_style=False))
-        return len(editable_objects)
-
-    def _load_for_edit(self, wpts, editable, fn):
-        log = logging.getLogger('shell_edit')
-        with open(fn, 'r') as f:
-            editable_objects = yaml.load(f.read())
-
-        if not isinstance(editable_objects, list):
-            raise Exception('Input file format is incorrect. The top level '
-                            'YAML must be a list')
-
-        if len(editable_objects) != len(wpts):
+    def _rev_match(self, server, local):
+        if (server['properties']['revision'] !=
+                local.get('properties', {}).get(('revision'))):
+            logging.getLogger('waypoint').debug(
+                'Server revision is %r, local is %r' % (
+                    server['properties']['revision'],
+                    local.get('properties', {}).get('revision')))
             raise Exception(
-                ('Input file contains %i items but matched %i from the '
-                 'server. Adding and deleting items via the edit process '
-                 'is not supported.') % (len(editable_objects), len(wpts)))
-
-        def rev_match(w1, w2):
-            try:
-                return (w1['properties']['revision'] ==
-                        w2['properties']['revision'])
-            except KeyError:
-                return False
-
-        for i, editable_object in enumerate(editable_objects):
-            wpt = self.client.get_object(self.objtype, id_=wpts[i]['id'])
-
-            # We stored the revision in the waypoint file,
-            # and we are processing a stable ordering. Compare
-            # the n'th server waypoint's revision with the n'th
-            # in the file to make sure we have not gotten out of
-            # sync with the server (as best we can)
-            if not rev_match(wpt, editable_object):
-                log.debug('Server revision is %r, local is %r' % (
-                    wpt['properties']['revision'],
-                    editable_object.get('properties', {}).get('revision')))
-                print(('Waypoint %i (%s) has changed on the server or '
-                       'lists are out of sync; unable to apply changes') % (
-                           i + 1, wpt['properties']['title']))
-                continue
-
-            if wpt['id'] != editable_object.get('id'):
-                log.debug('Server id is %r, local is %r' % (
-                    wpt['id'], editable_object.get('id')))
-                print(('Waypoint %i (%s) id does not match the server;. '
-                       'Unable to apply changes') % (
-                           i, wpt['properties']['title']))
-                continue
-
-            for top_key in editable_object:
-                if top_key not in editable:
-                    raise Exception('Invalid key %r in object' % top_key)
-                if not isinstance(editable[top_key], list):
-                    # Skip any top keys that are not lists as not editable
-                    log.debug('Skipping key %r' % top_key)
-                    continue
-                for key, val in editable_object[top_key].items():
-                    if key not in editable[top_key]:
-                        raise Exception('Invalid key %r/%r in object' % (
-                            top_key, key))
-                    wpt[top_key][key] = val
-
-            log.debug('Updating object: %s' % wpt)
-            if self.client.put_object(self.objtype, wpt):
-                self.verbose('Updated object %i (%s)' % (
-                    i, wpt['properties']['title']))
-            else:
-                raise Exception(('Failed to update object %i (%s): '
-                                 'server rejected changes') % (
-                                     i, wpt['properties']['title']))
+                ('%s has changed on the server or '
+                 'lists are out of sync; unable to apply changes') % (
+                     server['properties']['title']))
 
     def edit(self, args):
-        if args.in_folder:
-            folder = self.get_object(args.in_folder, objtype='folder')
-        else:
-            folder = None
-
-        log = logging.getLogger('shell_edit')
-        try:
-            wpts = self.find_objects(args.name, match=args.match)
-        except _Safety:
-            if folder:
-                wpts = [w for w in self.client.list_objects(self.objtype)
-                        if w['folder'] == folder['id']]
-            else:
-                wpts = []
-
-        # Make sure we get a stable sort order across GET/PUT
-        wpts = sorted(wpts, key=lambda w: w['id'])
-        if folder:
-            wpts = [wpt for wpt in wpts if wpt['folder'] == folder['id']]
-            log.debug('Limiting to folder %s: %s' % (folder['id'], len(wpts)))
-
-        if not wpts:
-            print('No objects matched criteria.')
-            return 1
-
-        temp_fn = 'waypoints.yml'
-
-        editable = {
-            # FIXME: This doesn't seem to 'just work'
-            # 'geometry': ['coordinates'],
-            'id': True,
-            'properties': ['icon', 'notes', 'public', 'title', 'revision'],
-        }
-
-        if args.interactive:
-            self._dump_for_edit(wpts, editable, temp_fn)
-            orig_mtime = os.path.getmtime(temp_fn)
-            subprocess.call([util.get_editor(), temp_fn])
-            new_mtime = os.path.getmtime(temp_fn)
-            if orig_mtime == new_mtime:
-                print('No changes made; not updating')
-                return 0
-            try:
-                self._load_for_edit(wpts, editable, temp_fn)
-            except Exception as e:
-                log.debug(traceback.format_exc())
-                print(e)
-                return 1
-
-        elif args.file:
-            try:
-                self._load_for_edit(wpts, editable, args.file)
-            except Exception as e:
-                log.debug(traceback.format_exc())
-                print(e)
-                return 1
-        else:
-            count = self._dump_for_edit(wpts, editable, temp_fn)
-            print(('Wrote %i waypoints to %r. Edit and then apply '
-                   'with edit -f') % (count, temp_fn))
+        editable = ['id'] + \
+            ['properties/%s' % p for p in ('icon', 'notes', 'public', 'title',
+                                           'revision')]
+        return self._edit(args, editable)
 
 
 class Track(Command):
@@ -773,6 +817,7 @@ class Track(Command):
     @staticmethod
     def opts(parser):
         cmds = parser.add_subparsers(dest='subcommand')
+        edit_ops(cmds)
         remove_ops(cmds, 'track')
         rename_ops(cmds)
         move_ops(cmds)
@@ -780,6 +825,30 @@ class Track(Command):
         list_and_dump_ops(cmds)
         archive_ops(cmds)
         show_ops(cmds)
+
+    def _rev_match(self, server, local):
+        srev = server['features'][0]['properties']['revision']
+        try:
+            lrev = local['features'][0]['properties']['revision']
+        except KeyError:
+            lrev = None
+        if srev != lrev:
+            logging.getLogger('track').debug(
+                'Server revision is %r, local is %r' % (
+                    srev, lrev))
+            raise Exception(
+                ('%s has changed on the server or '
+                 'lists are out of sync; unable to apply changes') % (
+                    server['features'][0]['properties']['title']))
+
+    def edit(self, args):
+        # As of 5/17/2019 this seems to be broken. Their own web client
+        # gets a 400 trying to update a track's color. We get a 200, but
+        # none of the changes stick.
+        editable = ['id'] + \
+            ['features/0/properties/%s' % p for p in (
+                'color', 'notes', 'public', 'title', 'revision')]
+        return self._edit(args, editable)
 
 
 class Folder(Command):

@@ -32,10 +32,21 @@ class FakeClient(object):
         {'id': '002', 'folder': '101', 'title': 'wpt2', 'deleted': True},
         {'id': '003', 'folder': '103', 'title': 'wpt3',
          'properties': {'time_created': '2015-10-21T23:29:00Z',
+                        'icon': 'foo',
+                        'notes': '',
+                        'public': False,
+                        'title': 'wpt3',
                         'revision': 6}},
     ]
     TRACKS = [
-        {'id': '201', 'folder': '', 'title': 'trk1'},
+        {'id': '201', 'folder': '', 'title': 'trk1',
+         'features': [{
+             'properties': {'title': 'trk1',
+                            'color': '#FF0000',
+                            'public': False,
+                            'revision': 6,
+                            'notes': ''},
+            }]},
         {'id': '202', 'folder': '102', 'title': 'trk2'},
     ]
 
@@ -396,6 +407,82 @@ class TestShellUnit(unittest.TestCase):
         mock_put.assert_called_once_with('track', new_trk)
 
     @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.dump')
+    def test_edit_track_dump(self, mock_dump, mock_open, mock_put):
+        out = self._run('track edit trk1')
+        self.assertIn('Edit and then apply', out)
+        mock_open.assert_called_once_with('tracks.yml', 'w')
+        fake_file = mock_open.return_value.__enter__.return_value
+        fake_file.write.assert_called_once_with(mock_dump.return_value)
+        mock_put.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.load')
+    def test_edit_track_load(self, mock_load, mock_open, mock_put):
+        mock_load.return_value = [{'id': '201',
+                                   'features': [{
+                                       'properties': {
+                                           'color': '#FF0000',
+                                           'notes': '',
+                                           'public': False,
+                                           'title': 'newname',
+                                           'revision': 6}}]}]
+        out = self._run('track edit trk1 -f tracks.yml')
+        self.assertEqual('', out)
+        mock_open.assert_called_once_with('tracks.yml', 'r')
+        fake_file = mock_open.return_value.__enter__.return_value
+        fake_file.read.assert_called_once_with()
+        mock_load.assert_called_once_with(fake_file.read.return_value)
+        updated = copy.deepcopy(FakeClient().get_object('track', 'trk1'))
+        updated['features'][0]['properties']['title'] = 'newname'
+        mock_put.assert_called_once_with('track', updated)
+
+    @mock.patch.object(FakeClient, 'put_object')
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.load')
+    def test_edit_track_load_errors(self, mock_load, mock_open, mock_put):
+        # User deleted revision
+        mock_load.return_value = [{'id': '201',
+                                   'features': [{
+                                       'properties': {'title': 'val'}}]}]
+        out = self._run('track edit trk1 -f track.yml')
+        self.assertIn('changed on the server', out)
+
+        # ID mismatch
+        mock_load.return_value = [{'id': '202',
+                                   'features': [{
+                                       'properties': {'revision': 6,
+                                                      'color': 'foo',
+                                                      'notes': '',
+                                                      'public': False,
+                                                      'title': 'val'}}]}]
+        out = self._run('--debug --verbose track edit trk1 -f track.yml')
+        self.assertIn('id does not match', out)
+
+        # User removed a value
+        mock_load.return_value = [{'id': '201',
+                                   'features': [{
+                                       'properties': {'revision': 6,
+                                                      'color': 'foo',
+                                                      'public': False,
+                                                      'title': 'val'}}]}]
+        out = self._run('track edit trk1 -f track.yml',
+                        expect_fail=True)
+        self.assertIn('Deleting values', out)
+
+        # Length mismatch between file and server query
+        mock_load.return_value = [{'id': '201',
+                                   'features': [{
+                                       'properties': {'revision': 6,
+                                                      'title': 'val'}}]},
+                                  'another thing']
+        out = self._run('track edit trk1 -f trake.yml',
+                        expect_fail=True)
+        self.assertIn('items but matched', out)
+
+    @mock.patch.object(FakeClient, 'put_object')
     def test_rename_fail(self, mock_put):
         mock_put.return_value = None
         out = self._run('track rename trk2 trk7',
@@ -519,7 +606,7 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch('builtins.open')
     @mock.patch('yaml.dump')
     def test_edit_waypoint_dump(self, mock_dump, mock_open, mock_put):
-        out = self._run('waypoint edit wpt1')
+        out = self._run('waypoint edit wpt3')
         self.assertIn('Edit and then apply', out)
         mock_open.assert_called_once_with('waypoints.yml', 'w')
         fake_file = mock_open.return_value.__enter__.return_value
@@ -532,6 +619,9 @@ class TestShellUnit(unittest.TestCase):
     def test_edit_waypoint_load(self, mock_load, mock_open, mock_put):
         mock_load.return_value = [{'id': '003',
                                    'properties': {
+                                       'icon': 'foo',
+                                       'notes': '',
+                                       'public': False,
                                        'title': 'newname',
                                        'revision': 6}}]
         out = self._run('waypoint edit wpt3 -f waypoint.yml')
@@ -548,27 +638,12 @@ class TestShellUnit(unittest.TestCase):
     @mock.patch('builtins.open')
     @mock.patch('yaml.load')
     def test_edit_waypoint_load_errors(self, mock_load, mock_open, mock_put):
-        # Additional top-level key disallowed
-        mock_load.return_value = [{'otherkey': 'val',
-                                   'id': '003',
-                                   'properties': {'revision': 6}}]
-        out = self._run('waypoint edit wpt3 -f waypoint.yml',
-                        expect_fail=True)
-        self.assertIn('otherkey', out)
-        mock_put.assert_not_called()
-
-        # Additional property key disallowed
-        mock_load.return_value = [{'id': '003',
-                                   'properties': {'revision': 6,
-                                                  'unknown': 'val'}}]
-        out = self._run('waypoint edit wpt3 -f waypoint.yml',
-                        expect_fail=True)
-        self.assertIn('unknown', out)
-        mock_put.assert_not_called()
-
         # Server rejected for whatever reason
         mock_load.return_value = [{'id': '003',
                                    'properties': {'revision': 6,
+                                                  'icon': 'foo',
+                                                  'notes': '',
+                                                  'public': False,
                                                   'title': 'val'}}]
         mock_put.return_value = False
         out = self._run('waypoint edit wpt3 -f waypoint.yml',
@@ -585,6 +660,9 @@ class TestShellUnit(unittest.TestCase):
         # Revision mismatch between local and server
         mock_load.return_value = [{'id': '003',
                                    'properties': {'revision': 5,
+                                                  'icon': 'foo',
+                                                  'notes': '',
+                                                  'public': False,
                                                   'title': 'val'}}]
         out = self._run('waypoint edit wpt3 -f waypoint.yml')
         self.assertIn('changed on the server', out)
@@ -598,9 +676,22 @@ class TestShellUnit(unittest.TestCase):
         # ID mismatch
         mock_load.return_value = [{'id': '002',
                                    'properties': {'revision': 6,
+                                                  'icon': 'foo',
+                                                  'notes': '',
+                                                  'public': False,
                                                   'title': 'val'}}]
         out = self._run('waypoint edit wpt3 -f waypoint.yml')
         self.assertIn('id does not match', out)
+
+        # User removed a value
+        mock_load.return_value = [{'id': '003',
+                                   'properties': {'revision': 6,
+                                                  'icon': 'foo',
+                                                  'public': False,
+                                                  'title': 'val'}}]
+        out = self._run('waypoint edit wpt3 -f waypoint.yml',
+                        expect_fail=True)
+        self.assertIn('Deleting values', out)
 
         # Length mismatch between file and server query
         mock_load.return_value = [{'id': '002',
