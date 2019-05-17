@@ -65,7 +65,9 @@ class FuzzyBoolean(argparse.Action):
 
 
 def remove_ops(cmds, objtype):
-    remove = cmds.add_parser('remove', help='Remove a %s' % objtype)
+    remove = cmds.add_parser(
+        'remove', help='Remove a %s' % objtype,
+        description='Delete %s objects from the server forever' % objtype)
     remove.add_argument('--match', action='store_true',
                         help=('Treat names as regular expressions and include '
                               'all matches'))
@@ -77,7 +79,8 @@ def remove_ops(cmds, objtype):
 
 
 def move_ops(cmds):
-    move = cmds.add_parser('move', help='Move to another folder')
+    move = cmds.add_parser('move', help='Move to another folder',
+                           description='Move objects into a folder')
     move.add_argument('--match', action='store_true',
                       help=('Treat names as regular expressions and include '
                             'all matches'))
@@ -94,7 +97,8 @@ def move_ops(cmds):
 
 
 def rename_ops(cmds):
-    rename = cmds.add_parser('rename', help='Rename')
+    rename = cmds.add_parser('rename', help='Rename',
+                             description='Rename objects on the server')
     rename.add_argument('--dry-run', action='store_true',
                         help=('Do not actually rename anything '
                               '(use with --verbose)'))
@@ -103,7 +107,9 @@ def rename_ops(cmds):
 
 
 def export_ops(cmds):
-    export = cmds.add_parser('export', help='Export to file')
+    export = cmds.add_parser(
+        'export', help='Export to file',
+        description='Export objects into a local GPX or KML file')
     export.add_argument('name', help='Name (or ID)')
     export.add_argument('filename', help='Export filename (or - for stdout)')
     export.add_argument('--format', default='gpx', choices=('gpx', 'kml'),
@@ -111,7 +117,8 @@ def export_ops(cmds):
 
 
 def list_and_dump_ops(cmds):
-    list = cmds.add_parser('list', help='List')
+    list = cmds.add_parser('list', help='List',
+                           description='List objects on the server')
     list.add_argument('--by-id', action='store_true',
                       help='List items by ID only (for resolving duplicates')
     list.add_argument('--match', metavar='NAME',
@@ -122,7 +129,10 @@ def list_and_dump_ops(cmds):
                             'inclusive range with START:END.'))
     list.add_argument('--archived', action=FuzzyBoolean,
                       help='Match items with archived state ("yes" or "no")')
-    dump = cmds.add_parser('dump', help='Raw dump of the data structure')
+    dump = cmds.add_parser('dump', help='Raw dump of the data structure',
+                           description=('Dump the low-level representation of '
+                                        'an object on the server '
+                                        '(for debugging)'))
     dump.add_argument('name', help='Name (or ID)')
 
     urlfor = cmds.add_parser('url', help='Show direct browser-suitable URL')
@@ -130,10 +140,16 @@ def list_and_dump_ops(cmds):
 
 
 def archive_ops(cmds):
-    archive = cmds.add_parser('archive',
-                              help='Archive (set sync=off)')
-    unarchive = cmds.add_parser('unarchive',
-                                help='Unarchive (set sync=on)')
+    archive = cmds.add_parser(
+        'archive',
+        help='Archive (set sync=off)',
+        description=('Archive an object on the server '
+                     '(so that it does not sync to devices'))
+    unarchive = cmds.add_parser(
+        'unarchive',
+        help='Unarchive (set sync=on)',
+        description=('Unarchive an object on the server '
+                     '(so that it does sync to devices)'))
     for i in (archive, unarchive):
         i.add_argument('name', nargs='*',
                        help='Name (or ID)')
@@ -176,8 +192,10 @@ def edit_ops(cmds):
 
 
 def show_ops(cmds):
-    show = cmds.add_parser('show',
-                           help='Show all available details for a single item')
+    show = cmds.add_parser(
+        'show',
+        help='Show all available details for a single item',
+        description='Show all available details about an item')
     show.add_argument('name',
                       help='Name (or ID)')
     show.add_argument('--field-separator', '-f',
