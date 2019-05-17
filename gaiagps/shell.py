@@ -180,7 +180,7 @@ def edit_ops(cmds):
         server side during the edit.
         """))
 
-    edit.add_argument('name', help='Name (or ID)', nargs='+')
+    edit.add_argument('name', help='Name (or ID)', nargs='*')
     if util.get_editor():
         edit.add_argument('-i', '--interactive', action='store_true',
                           help='Interactively edit properties')
@@ -189,6 +189,8 @@ def edit_ops(cmds):
     edit.add_argument('--match', action='store_true',
                       help=('Treat names as regular expressions and include '
                             'all matches'))
+    edit.add_argument('--in-folder',
+                      help='Only edit items in this folder')
 
 
 def show_ops(cmds):
@@ -696,14 +698,30 @@ class Waypoint(Command):
                                      i, wpt['properties']['title']))
 
     def edit(self, args):
+        if args.in_folder:
+            folder = self.get_object(args.in_folder, objtype='folder')
+        else:
+            folder = None
+
         log = logging.getLogger('shell_edit')
-        wpts = self.find_objects(args.name, match=args.match)
-        if not wpts:
-            print('No objects matched criteria.')
-            return 1
+        try:
+            wpts = self.find_objects(args.name, match=args.match)
+        except _Safety:
+            if folder:
+                wpts = [w for w in self.client.list_objects(self.objtype)
+                        if w['folder'] == folder['id']]
+            else:
+                wpts = []
 
         # Make sure we get a stable sort order across GET/PUT
         wpts = sorted(wpts, key=lambda w: w['id'])
+        if folder:
+            wpts = [wpt for wpt in wpts if wpt['folder'] == folder['id']]
+            log.debug('Limiting to folder %s: %s' % (folder['id'], len(wpts)))
+
+        if not wpts:
+            print('No objects matched criteria.')
+            return 1
 
         temp_fn = 'waypoints.yml'
 

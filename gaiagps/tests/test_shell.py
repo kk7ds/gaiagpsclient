@@ -647,6 +647,39 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('No objects matched criteria',  out)
 
+        out = self._run('waypoint edit',
+                        expect_fail=True)
+        self.assertIn('No objects matched criteria',  out)
+
+    @mock.patch('gaiagps.shell.Waypoint._dump_for_edit')
+    def test_edit_waypoint_in_folder(self, mock_dump):
+        the_wpts = []
+
+        def _dump(wpts, editable, fn):
+            the_wpts.clear()
+            the_wpts.extend(wpts)
+            return 1
+
+        mock_dump.side_effect = _dump
+
+        # All items in a folder
+        self._run('waypoint edit --in-folder subfolder')
+        self.assertEqual(1, len(the_wpts))
+        self.assertEqual('003', the_wpts[0]['id'])
+
+        # One item in a folder by match
+        self._run('waypoint edit --in-folder subfolder wpt3')
+        self.assertEqual(1, len(the_wpts))
+        self.assertEqual('003', the_wpts[0]['id'])
+
+        # Folder but specify an item not in that folder
+        mock_dump.reset_mock()
+        out = self._run('waypoint edit --in-folder subfolder wpt2',
+                        expect_fail=True)
+        self.assertNotIn('Wrote', out)
+        self.assertIn('No objects matched', out)
+        mock_dump.assert_not_called()
+
     @mock.patch.object(FakeClient, 'upload_file')
     def test_upload(self, mock_upload):
         self._run('upload foo.gpx')
