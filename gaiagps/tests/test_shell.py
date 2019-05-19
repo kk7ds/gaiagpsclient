@@ -875,6 +875,13 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('failed to add', out)
         fake_create.assert_called_once_with('folder', util.make_folder('foo'))
 
+    @mock.patch.object(FakeClient, 'put_object')
+    def test_rename_folder(self, mock_put):
+        out = self._run('--verbose folder rename folder1 newfolder')
+        self.assertIn('Renaming', out)
+        new_fld = {'id': '101', 'title': 'newfolder'}
+        mock_put.assert_called_once_with('folder', new_fld)
+
     @mock.patch.object(FakeClient, 'upload_file')
     @mock.patch.object(FakeClient, 'put_object')
     @mock.patch.object(FakeClient, 'delete_object')

@@ -316,7 +316,7 @@ class Command(object):
 
         if objtype == 'waypoint':
             obj['properties']['title'] = args.new_name
-        elif objtype == 'track':
+        elif objtype in ('track', 'folder'):
             obj = {'id': obj['id'], 'title': args.new_name}
         else:
             raise RuntimeError('Internal error: unable to '
@@ -874,6 +874,7 @@ class Folder(Command):
         list_and_dump_ops(cmds)
         archive_ops(cmds)
         show_ops(cmds)
+        rename_ops(cmds)
 
     def add(self, args):
         if args.existing_folder:
