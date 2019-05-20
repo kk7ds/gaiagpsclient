@@ -54,6 +54,8 @@ Next, you can use ``python`` and ``pip`` to install directly from github. `Open 
   python -mpip install https://github.com/kk7ds/gaiagpsclient/archive/master.zip
 
 
+.. _ValidateInstall:
+
 Validating the install
 ----------------------
 

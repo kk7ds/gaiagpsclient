@@ -16,6 +16,7 @@ Contents:
    install
    cli
    gaiagps
+   cookbook
 
 
 Indices and tables
