@@ -70,6 +70,30 @@ ICON_ALIASES = {
 }
 
 
+COLOR_ALIASES = {
+    'red': '#F42410',
+    'lightred': '#F90553',
+    'purple': '#B60DC3',
+    'navy': '#5E23CA',
+    'blue': '#2D3FC7',
+    'lightblue': '#0498FF',
+    'teal': '#00ACF8',
+    'aqua': '#00C3DD',
+    'forestgreen': '#009B89',
+    'green': '#36C03B',
+    'lightgreen': '#8AD42F',
+    'goldenrod': '#DCEE0E',
+    'yellow': '#FFF011',
+    'amber': '#FFC900',
+    'orange': '#FF9D00',
+    'firetruck': '#FF4D04',
+    'brown': '#784D3E',
+    'grey': '#A4A4A4',
+    'slate': '#577B8E',
+    'black': '#000000',
+}
+
+
 def date_parse(thing):
     """Parse a local datetime from a thing with a datestamp.
 

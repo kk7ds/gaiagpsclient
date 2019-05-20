@@ -10,6 +10,7 @@ import re
 import os
 import subprocess
 import sys
+import textwrap
 import traceback
 import yaml
 
@@ -512,6 +513,23 @@ class Command(object):
                 table.add_row((k, v))
             print(table)
 
+    def _edit_preamble(self):
+        """Return a list of lines that should be prepended to an editable
+        YAML document to assist the user."""
+        return ['This is a YAML document. Take care not to change the format!',
+        ]
+
+    def _edit_preprocess(self, obj):
+        """Pre-process the object direct from the server before the user
+        edits it"""
+        return obj
+
+    def _edit_postprocess(self, obj):
+        """Post-process the object after it has been updated from
+        the server with the user's edits. The result will be the direct
+        PUT document."""
+        return obj
+
     def _dump_for_edit(self, objs, editable, temp_fn):
         """Dump objects to yaml.
 
@@ -529,7 +547,7 @@ class Command(object):
             for path in editable:
                 # Pointer to which part of the object we have drilled
                 # down to
-                tmp = obj
+                tmp = self._edit_preprocess(obj)
 
                 # Pointer to the current level in editable_object we are
                 # constructing
@@ -562,6 +580,9 @@ class Command(object):
 
         if editable_objects:
             with open(temp_fn, 'w') as f:
+                f.write(os.linesep.join(['# %s' % line
+                                         for line in self._edit_preamble()]))
+                f.write(os.linesep * 2)
                 f.write(yaml.dump(editable_objects, default_flow_style=False))
         return len(editable_objects)
 
@@ -624,11 +645,16 @@ class Command(object):
                         'Deleting values during edit is not allowed.' % (path,
                                                                          i))
 
+            obj = self._edit_postprocess(obj)
+
             log.debug('Updating object: %s' % obj)
             try:
                 title = obj['properties']['title']
             except KeyError:
-                title = obj['features'][0]['properties']['title']
+                try:
+                    title = obj['features'][0]['properties']['title']
+                except KeyError:
+                    title = obj['id']
             if self.client.put_object(self.objtype, obj):
                 self.verbose('Updated object %i (%s)' % (i, title))
             else:
@@ -801,6 +827,23 @@ class Waypoint(Command):
                  'lists are out of sync; unable to apply changes') % (
                      server['properties']['title']))
 
+    def _edit_preamble(self):
+        return (super(Waypoint, self)._edit_preamble() +
+                textwrap.wrap('Available icons are: ' +
+                              ' '.join(util.ICON_ALIASES.keys())))
+
+    def _edit_preprocess(self, obj):
+        icon_rev = {v: k for k, v in util.ICON_ALIASES.items()}
+        obj['properties']['icon'] = icon_rev.get(obj['properties']['icon'],
+                                                 obj['properties']['icon'])
+        return obj
+
+    def _edit_postprocess(self, obj):
+        icon_fwd = util.ICON_ALIASES
+        obj['properties']['icon'] = icon_fwd.get(obj['properties']['icon'],
+                                                 obj['properties']['icon'])
+        return obj
+
     def edit(self, args):
         editable = ['id'] + \
             ['properties/%s' % p for p in ('icon', 'notes', 'public', 'title',
@@ -814,6 +857,9 @@ class Track(Command):
     This command allows you to take action on tracks, such as adding,
     removing, and renaming them.
     """
+
+    _editable_properties = ('color', 'notes', 'public', 'title', 'revision')
+
     @staticmethod
     def opts(parser):
         cmds = parser.add_subparsers(dest='subcommand')
@@ -841,13 +887,38 @@ class Track(Command):
                  'lists are out of sync; unable to apply changes') % (
                     server['features'][0]['properties']['title']))
 
+    def _edit_preamble(self):
+        return (super(Track, self)._edit_preamble() +
+                textwrap.wrap('Available colors are: ' +
+                              ' '.join(util.COLOR_ALIASES.keys())))
+
+    def _edit_preprocess(self, obj):
+        color_rev = {v: k for k, v in util.COLOR_ALIASES.items()}
+        props = {k: obj['features'][0]['properties'][k]
+                 for k in self._editable_properties}
+        props['color'] = color_rev.get(props['color'].upper(), props['color'])
+        props['id'] = obj['id']
+        obj['features'][0]['properties'] = props
+        return obj
+
+    def _edit_postprocess(self, obj):
+        # For some reason tracks are different than waypoints. The PUT
+        # seems to expect just a dict of properties. We include id here
+        # because apiclient expects it for logging, but otherwise just
+        # dump the properties into the payload.
+        color_fwd = util.COLOR_ALIASES
+        props = obj['features'][0]['properties']
+        # For some reason the server changes the colors slightly on upload.
+        # The COLOR_ALIASES are the ones defined in the web app.
+        props['color'] = color_fwd.get(props['color'].lower(),
+                                       props['color'])
+        return dict({k: v for k, v in props.items()
+                     if k in self._editable_properties},
+                    id=obj['id'])
+
     def edit(self, args):
-        # As of 5/17/2019 this seems to be broken. Their own web client
-        # gets a 400 trying to update a track's color. We get a 200, but
-        # none of the changes stick.
         editable = ['id'] + \
-            ['features/0/properties/%s' % p for p in (
-                'color', 'notes', 'public', 'title', 'revision')]
+            ['features/0/properties/%s' % p for p in self._editable_properties]
         return self._edit(args, editable)
 
 

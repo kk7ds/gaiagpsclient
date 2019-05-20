@@ -414,7 +414,10 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('Edit and then apply', out)
         mock_open.assert_called_once_with('tracks.yml', 'w')
         fake_file = mock_open.return_value.__enter__.return_value
-        fake_file.write.assert_called_once_with(mock_dump.return_value)
+        preamble = fake_file.write.call_args_list[0][0][0]
+        self.assertIn('YAML document', preamble)
+        self.assertIn('yellow', preamble)
+        fake_file.write.assert_has_calls([mock.call(mock_dump.return_value)])
         mock_put.assert_not_called()
 
     @mock.patch.object(FakeClient, 'put_object')
@@ -424,7 +427,7 @@ class TestShellUnit(unittest.TestCase):
         mock_load.return_value = [{'id': '201',
                                    'features': [{
                                        'properties': {
-                                           'color': '#FF0000',
+                                           'color': 'red',
                                            'notes': '',
                                            'public': False,
                                            'title': 'newname',
@@ -435,9 +438,12 @@ class TestShellUnit(unittest.TestCase):
         fake_file = mock_open.return_value.__enter__.return_value
         fake_file.read.assert_called_once_with()
         mock_load.assert_called_once_with(fake_file.read.return_value)
-        updated = copy.deepcopy(FakeClient().get_object('track', 'trk1'))
-        updated['features'][0]['properties']['title'] = 'newname'
-        mock_put.assert_called_once_with('track', updated)
+        obj = FakeClient().get_object('track', 'trk1')
+        expected = copy.deepcopy(obj['features'][0]['properties'])
+        expected['title'] = 'newname'
+        expected['color'] = '#F42410'
+        expected['id'] = obj['id']
+        mock_put.assert_called_once_with('track', expected)
 
     @mock.patch.object(FakeClient, 'put_object')
     @mock.patch('builtins.open')
@@ -610,7 +616,10 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('Edit and then apply', out)
         mock_open.assert_called_once_with('waypoints.yml', 'w')
         fake_file = mock_open.return_value.__enter__.return_value
-        fake_file.write.assert_called_once_with(mock_dump.return_value)
+        fake_file.write.assert_has_calls([mock.call(mock_dump.return_value)])
+        preamble = fake_file.write.call_args_list[0][0][0]
+        self.assertIn('YAML document', preamble)
+        self.assertIn('chemist', preamble)
         mock_put.assert_not_called()
 
     @mock.patch.object(FakeClient, 'put_object')
