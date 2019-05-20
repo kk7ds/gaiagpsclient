@@ -516,8 +516,7 @@ class Command(object):
     def _edit_preamble(self):
         """Return a list of lines that should be prepended to an editable
         YAML document to assist the user."""
-        return ['This is a YAML document. Take care not to change the format!',
-        ]
+        return ['This is a YAML document. Take care not to change the format!']
 
     def _edit_preprocess(self, obj):
         """Pre-process the object direct from the server before the user
