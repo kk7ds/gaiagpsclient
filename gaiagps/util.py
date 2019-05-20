@@ -94,6 +94,28 @@ COLOR_ALIASES = {
 }
 
 
+# From https://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd
+GPXX_COLORS_TO_GAIA = {
+    'Black': 'black',
+    'DarkRed': 'red',
+    'DarkGreen': 'forestgreen',
+    'DarkYellow': 'goldenrod',
+    'DarkBlue': 'navy',
+    'DarkMagenta': 'purple',
+    'DarkCyan': 'teal',
+    'LightGray': 'grey',
+    'DarkGray': 'slate',
+    'Red': 'lightred',
+    'Green': 'green',
+    'Yellow': 'yellow',
+    'Blue': 'blue',
+    'Magenta': 'purple',
+    'Cyan': 'aqua',
+    'White': '#000000',
+    'Transparent': 'brown',
+}
+
+
 def date_parse(thing):
     """Parse a local datetime from a thing with a datestamp.
 
@@ -455,3 +477,44 @@ def strip_gpx_extensions(source_file, dest_file):
             elem.remove(ext)
 
     tree.write(dest_file)
+
+
+def get_track_colors_from_gpx(source_file):
+    """Return a dict of track names and colors from a GPX file.
+
+    :param source_file: Source GPX filename
+    :type source_file: str
+    :returns: Dict of name:color
+    """
+    namespaces = {'gpx': 'http://www.topografix.com/GPX/1/1',
+                  'gpxx': 'http://www.garmin.com/xmlschemas/GpxExtensions/v3'}
+    for ns, url in namespaces.items():
+        ET.register_namespace(ns, url)
+
+    try:
+        tree = ET.parse(source_file)
+    except ET.ParseError:
+        raise Exception('Input is not a GPX file')
+
+    root = tree.getroot()
+    if root.tag != '{http://www.topografix.com/GPX/1/1}gpx':
+        raise Exception('Input is not a GPX file')
+
+    tracks = {}
+    for i, trk in enumerate(root.findall('gpx:trk', namespaces)):
+        names = trk.findall('gpx:name', namespaces)
+        if not names:
+            LOG.info('Skipping unnamed track #%i' % (i + 1))
+            continue
+        name = names[0].text
+        colors = trk.findall(
+            'gpx:extensions/gpxx:TrackExtension/gpxx:DisplayColor',
+            namespaces)
+        if not colors:
+            LOG.info('Skipping uncolored track #%i (%s)' % (i + 1, name))
+            continue
+        color = colors[0].text
+
+        tracks[name] = color
+
+    return tracks

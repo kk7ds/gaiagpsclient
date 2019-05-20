@@ -235,6 +235,38 @@ class TestUtilUnit(unittest.TestCase):
                           util.strip_gpx_extensions,
                           'input-file', 'output-file')
 
+    @mock.patch('builtins.open')
+    def test_get_track_colors_from_gpx(self, mock_open):
+        input = io.BytesIO(GPX_WITH_EXTENSIONS.encode())
+        mock_open.return_value = input
+        self.assertEqual({'test track': 'Red'},
+                         util.get_track_colors_from_gpx('foo'))
+
+    @mock.patch('builtins.open')
+    def test_get_track_colors_from_gpx_errors(self, mock_open):
+        input = io.BytesIO(b'foo')
+        mock_open.return_value = input
+        self.assertRaises(Exception,
+                          util.get_track_colors_from_gpx, 'input-file')
+
+        input = io.BytesIO(b'<kml></kml>')
+        mock_open.return_value = input
+        self.assertRaises(Exception,
+                          util.get_track_colors_from_gpx, 'input-file')
+
+        noname = copy.copy(GPX_WITH_EXTENSIONS)
+        noname = noname.replace('<name>test track</name>', '')
+        input = io.BytesIO(noname.encode())
+        mock_open.return_value = input
+        self.assertEqual({}, util.get_track_colors_from_gpx('input-file'))
+
+        noexts = copy.copy(GPX_WITH_EXTENSIONS)
+        noexts = noexts.replace('<gpxx:DisplayColor>Red</gpxx:DisplayColor>',
+                                '')
+        input = io.BytesIO(noexts.encode())
+        mock_open.return_value = input
+        self.assertEqual({}, util.get_track_colors_from_gpx('input-file'))
+
 
 GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:wptx1="http://www.garmin.com/xmlschemas/WaypointExtension/v1" xmlns:gpxtrx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:trp="http://www.garmin.com/xmlschemas/TripExtensions/v1" xmlns:adv="http://www.garmin.com/xmlschemas/AdventuresExtensions/v1" xmlns:prs="http://www.garmin.com/xmlschemas/PressureExtension/v1" xmlns:tmd="http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1" xmlns:vptm="http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1" xmlns:ctx="http://www.garmin.com/xmlschemas/CreationTimeExtension/v1" xmlns:gpxacc="http://www.garmin.com/xmlschemas/AccelerationExtension/v1" xmlns:gpxpx="http://www.garmin.com/xmlschemas/PowerExtension/v1" xmlns:vidx1="http://www.garmin.com/xmlschemas/VideoExtension/v1" creator="Garmin Desktop App" version="1.1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/WaypointExtension/v1 http://www8.garmin.com/xmlschemas/WaypointExtensionv1.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/ActivityExtension/v1 http://www8.garmin.com/xmlschemas/ActivityExtensionv1.xsd http://www.garmin.com/xmlschemas/AdventuresExtensions/v1 http://www8.garmin.com/xmlschemas/AdventuresExtensionv1.xsd http://www.garmin.com/xmlschemas/PressureExtension/v1 http://www.garmin.com/xmlschemas/PressureExtensionv1.xsd http://www.garmin.com/xmlschemas/TripExtensions/v1 http://www.garmin.com/xmlschemas/TripExtensionsv1.xsd http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1 http://www.garmin.com/xmlschemas/TripMetaDataExtensionsv1.xsd http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1 http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensionsv1.xsd http://www.garmin.com/xmlschemas/CreationTimeExtension/v1 http://www.garmin.com/xmlschemas/CreationTimeExtensionsv1.xsd http://www.garmin.com/xmlschemas/AccelerationExtension/v1 http://www.garmin.com/xmlschemas/AccelerationExtensionv1.xsd http://www.garmin.com/xmlschemas/PowerExtension/v1 http://www.garmin.com/xmlschemas/PowerExtensionv1.xsd http://www.garmin.com/xmlschemas/VideoExtension/v1 http://www.garmin.com/xmlschemas/VideoExtensionv1.xsd">
@@ -263,5 +295,19 @@ GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
       </ctx:CreationTimeExtension>
     </extensions>
   </wpt>
+  <trk>
+    <name>test track</name>
+    <extensions>
+      <gpxx:TrackExtension>
+        <gpxx:DisplayColor>Red</gpxx:DisplayColor>
+      </gpxx:TrackExtension>
+    </extensions>
+    <trkseg>
+      <trkpt lat="45.45985241420567" lon="-122.516925316303968">
+        <ele>230.43359375</ele>
+        <time>2018-07-11T15:25:05Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
 </gpx>
 """  # noqa

@@ -6,6 +6,7 @@ import http.cookiejar
 import logging
 import pprint
 import prettytable
+import random
 import re
 import os
 import subprocess
@@ -254,7 +255,7 @@ class Command(object):
                                           **kwargs)
 
     def find_objects(self, names_or_ids, objtype=None, match=False,
-                     date_range=None):
+                     date_range=None, allow_missing=False):
         matched_objs = []
         objs = self.client.list_objects(objtype or self.objtype)
         if names_or_ids:
@@ -265,8 +266,12 @@ class Command(object):
                     matched_objs.extend(apiclient.match(objs, 'title',
                                                         name_or_id))
                 else:
-                    matched_objs.append(apiclient.find(objs, 'title',
-                                                       name_or_id))
+                    try:
+                        matched_objs.append(apiclient.find(objs, 'title',
+                                                           name_or_id))
+                    except apiclient.NotFound:
+                        if not allow_missing:
+                            raise
         else:
             matched_objs = objs
 
@@ -862,6 +867,35 @@ class Track(Command):
     @staticmethod
     def opts(parser):
         cmds = parser.add_subparsers(dest='subcommand')
+
+        colorize = cmds.add_parser(
+            'colorize', help='Colorize tracks',
+            description=('Colorize tracks in various ways. This will allow '
+                         'colorizing tracks in various ways, including '
+                         'attempting to match tracks in a GPX file and '
+                         'changing the GaiaGPS color to match.'))
+        colorize.add_argument('name', nargs='*',
+                              help='Name (or ID)')
+        colorize.add_argument('--in-folder', metavar='FOLDER',
+                              help='Only affect items in this folder')
+        colorize.add_argument('--match', action='store_true',
+                              help=('Treat names as regular expressions and '
+                                    'include all matches'))
+        colorize.add_argument('--random', action='store_true',
+                              help='Randomly colorize selected tracks')
+        colorize.add_argument('--from-gpx-file', metavar='FILE',
+                              help=('Attempt to colorize tracks to match '
+                                    'corresponding data in a GPX file'))
+        colorize.add_argument('--dry-run', action='store_true',
+                              help=('Do not actually change colors. It is '
+                                    'HIGHLY recommended that you use this '
+                                    'to validate an approach before allowing '
+                                    'changes to be made!'))
+        colorize.add_argument('--color',
+                              help=('Change matching tracks to this color. '
+                                    'Provide an HTML color code '
+                                    '(like #FBABCD).'))
+
         edit_ops(cmds)
         remove_ops(cmds, 'track')
         rename_ops(cmds)
@@ -919,6 +953,82 @@ class Track(Command):
         editable = ['id'] + \
             ['features/0/properties/%s' % p for p in self._editable_properties]
         return self._edit(args, editable)
+
+    def _colorize_tracks_by_id(self, dry_run, tracks):
+        for track_id, color_code in tracks.items():
+            self.verbose('Coloring track %r %r' % (track_id, color_code))
+            if dry_run:
+                continue
+            if not self.client.put_object('track',
+                                          {'id': track_id,
+                                           'color': color_code}):
+                raise RuntimeError('Failed to set track %r to %r' % (
+                    track_id, color_code))
+
+    def colorize(self, args):
+        try:
+            objs = self.find_objects(args.name, match=args.match)
+        except _Safety:
+            objs = []
+
+        if args.name and not objs:
+            # Some query was provided but we found nothing. Run no further.
+            print('No matching objects to colorize')
+            return 1
+
+        if args.in_folder:
+            folder_id = self.get_object(args.in_folder, objtype='folder')['id']
+        else:
+            folder_id = None
+
+        def only_folder(objs):
+            return [o for o in objs
+                    if folder_id is None or o['folder'] == folder_id]
+
+        if args.random:
+            colors = list(util.COLOR_ALIASES.values())
+            self._colorize_tracks_by_id(
+                args.dry_run,
+                {t['id']: random.choice(colors) for t in only_folder(objs)})
+        elif args.from_gpx_file:
+            gpx_tracks = util.get_track_colors_from_gpx(args.from_gpx_file)
+            to_change = {}
+
+            if not gpx_tracks:
+                print('No colored tracks found in %r' % args.from_gpx_file)
+                return 1
+
+            if not objs:
+                # No names/ids specified, so try to look up everything
+                # in the GPX file. This is not very efficient, but alas.
+                objs = self.find_objects(gpx_tracks.keys(), allow_missing=True)
+                self.verbose(
+                    'Looked up %i tracks from %i found in GPX file' % (
+                        len(objs), len(gpx_tracks)))
+
+            if not objs:
+                print('No matching objects to colorize')
+                return 1
+
+            for obj in only_folder(objs):
+                if obj['title'] in gpx_tracks:
+                    to_change[obj['id']] = (
+                        util.COLOR_ALIASES[
+                            util.GPXX_COLORS_TO_GAIA[
+                                gpx_tracks[obj['title']]]])
+                else:
+                    self.verbose('Track %r not found in GPX file' % (
+                        obj['title']))
+            self._colorize_tracks_by_id(args.dry_run, to_change)
+        elif args.color:
+            if not re.match('^#?[A-f0-9]{6}$', args.color):
+                print('Invalid color code. Provide an HTML color like #FCEBDA')
+                return 1
+            if not args.color.startswith('#'):
+                args.color = '#%s' % args.color
+            self._colorize_tracks_by_id(
+                args.dry_run,
+                {o['id']: args.color for o in only_folder(objs)})
 
 
 class Folder(Command):

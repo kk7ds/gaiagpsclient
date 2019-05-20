@@ -1184,3 +1184,133 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('tree --long')
         self.assertIn('folder1', out)
         self.assertIn('21 Oct', out)
+
+    @mock.patch.object(FakeClient, 'put_object')
+    def test_colorize_track(self, mock_put):
+        # Bad color
+        out = self._run('track colorize --color red trk1',
+                        expect_fail=True)
+        self.assertIn('Invalid color code', out)
+        mock_put.assert_not_called()
+
+        # No match
+        out = self._run('track colorize --color #ff0000 notrk',
+                        expect_fail=True)
+        self.assertIn('not found', out)
+        mock_put.assert_not_called()
+
+        # No pattern match
+        out = self._run('track colorize --color #ff0000 --match notrk',
+                        expect_fail=True)
+        self.assertIn('No matching', out)
+        mock_put.assert_not_called()
+
+        # Change with proper code
+        out = self._run('track colorize --color #ff0000 trk1')
+        self.assertEqual('', out)
+        mock_put.assert_called_once_with('track', {'id': '201',
+                                                   'color': '#ff0000'})
+
+        # Change honors dry-run
+        mock_put.reset_mock()
+        out = self._run('track colorize --dry-run --color #ff0000 trk1')
+        self.assertEqual('', out)
+        mock_put.assert_not_called()
+
+        # Change with missing hash grace
+        mock_put.reset_mock()
+        out = self._run('track colorize --color ff0000 trk1')
+        self.assertEqual('', out)
+        mock_put.assert_called_once_with('track', {'id': '201',
+                                                   'color': '#ff0000'})
+
+        # Failed PUT reports failure
+        mock_put.reset_mock()
+        mock_put.return_value = False
+        out = self._run('track colorize --color ff0000 trk1',
+                        expect_fail=True)
+        self.assertIn('Failed to set track', out)
+
+    @mock.patch('random.choice')
+    @mock.patch.object(FakeClient, 'put_object')
+    def test_colorize_track_random(self, mock_put, mock_choice):
+        out = self._run('track colorize --random notrk',
+                        expect_fail=True)
+        self.assertIn('not found', out)
+        mock_put.assert_not_called()
+
+        out = self._run('track colorize --random --match notrk',
+                        expect_fail=True)
+        self.assertIn('No matching', out)
+        mock_put.assert_not_called()
+
+        mock_choice.side_effect = ['color1', 'color2']
+        out = self._run('track colorize --random trk1 trk2')
+        self.assertEqual('', out)
+        self.assertTrue(mock_choice.called)
+        mock_put.assert_any_call('track', {'id': '201',
+                                           'color': 'color1'})
+        mock_put.assert_any_call('track', {'id': '202',
+                                           'color': 'color2'})
+
+    @mock.patch('gaiagps.util.get_track_colors_from_gpx')
+    @mock.patch.object(FakeClient, 'put_object')
+    def test_colorize_track_from_gpx(self, mock_put, mock_get_tracks):
+        mock_get_tracks.return_value = {
+            'trk1': 'Red',
+            'trk3': 'Green',
+        }
+
+        # Match with no matches
+        out = self._run('track colorize --from-gpx-file foo.gpx --match notrk',
+                        expect_fail=True)
+        self.assertIn('No matching', out)
+        mock_put.assert_not_called()
+
+        # Explicit, runs one
+        out = self._run('track colorize --from-gpx-file foo.gpx trk1')
+        self.assertEqual('', out)
+        mock_put.assert_called_once_with('track', {'id': '201',
+                                                   'color': '#F90553'})
+
+        # Match that matches some not found in the gpx data
+        mock_put.reset_mock()
+        out = self._run('--verbose track colorize --from-gpx-file foo.gpx '
+                        '--match trk')
+        self.assertIn('\'trk2\' not found in GPX file', out)
+        self.assertIn('Coloring track \'201\'', out)
+        mock_put.assert_any_call('track', {'id': '201',
+                                           'color': '#F90553'})
+
+        # Run all found in the gpx data
+        mock_put.reset_mock()
+        out = self._run('--verbose track colorize --from-gpx-file foo.gpx')
+        self.assertIn('Coloring track \'201\'', out)
+        self.assertNotIn('trk3', out)
+        mock_put.assert_any_call('track', {'id': '201',
+                                           'color': '#F90553'})
+
+        # In folder only selects the right tracks
+        mock_get_tracks.return_value = {'trk1': 'Green',
+                                        'trk2': 'Red'}
+        mock_put.reset_mock()
+        self._run('--verbose track colorize --from-gpx-file foo.gpx '
+                  '--in-folder folder2')
+        mock_put.assert_called_once_with('track', {'id': '202',
+                                                   'color': '#F90553'})
+
+        # No tracks in gpx data
+        mock_get_tracks.return_value = {}
+        mock_put.reset_mock()
+        out = self._run('--verbose track colorize --from-gpx-file foo.gpx',
+                        expect_fail=True)
+        self.assertIn('No colored tracks found', out)
+        mock_put.assert_not_called()
+
+        # Tracks in gpx, but no matching
+        mock_get_tracks.return_value = {'notrk': 'foo'}
+        mock_put.reset_mock()
+        out = self._run('--verbose track colorize --from-gpx-file foo.gpx',
+                        expect_fail=True)
+        self.assertIn('No matching objects', out)
+        mock_put.assert_not_called()
