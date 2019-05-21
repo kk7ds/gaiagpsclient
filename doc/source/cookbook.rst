@@ -132,14 +132,14 @@ exist in a GPX file and use the colors within to update GaiaGPS' track
 colors. Assuming we have a GPX file locally, we can first upload that
 file and then re-process it for track color information:
 
-.. prompt:: bash $ auto
+.. prompt:: bash
 
   gaiagps upload foo.gpx
 
 .. note:: Large file uploads are sometimes queued, so you may need to
           wait between these steps until the upload appears.
 
-.. prompt:: bash $
+.. prompt:: bash $ auto
 
   $ gaiagps folder list
   +-------------------------+----------------------+-------------------+
