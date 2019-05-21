@@ -317,7 +317,7 @@ class TestClientUnit(unittest.TestCase):
                   'waypoint': ['1', '2']})
 
 
-class TestClientFunctional(unittest.TestCase):
+class BaseClientFunctional(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Transient cookie jar, once per test invocation
@@ -354,6 +354,8 @@ class TestClientFunctional(unittest.TestCase):
                                                            obj['id'],
                                                            obj['title']))
 
+
+class TestClientFunctional(BaseClientFunctional):
     def test_test_auth(self):
         self.assertTrue(self.api.test_auth())
 

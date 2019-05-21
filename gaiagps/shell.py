@@ -482,8 +482,21 @@ class Command(object):
     def show(self, args):
         obj = self.get_object(args.name)
 
+        try:
+            props = obj['properties']
+        except KeyError:
+            try:
+                props = obj['features'][0]['properties']
+            except KeyError:
+                props = None
+
+        if props is None:
+            raise RuntimeError(
+                ('Internal error: unable to '
+                 'find properties for object of type "%s"') % self.objtype)
+
         for k in args.only_key:
-            if k not in obj['properties']:
+            if k not in props:
                 print('%s %r does not have key %r' % (
                     self.objtype.title(), args.name, k))
                 return 1
@@ -494,10 +507,10 @@ class Command(object):
             return 1
 
         if args.expand_key == ['all']:
-            args.expand_key = list(obj['properties'].keys())
+            args.expand_key = list(props.keys())
 
-        props = [(k, obj['properties'][k])
-                 for k in sorted(obj['properties'].keys())
+        props = [(k, props[k])
+                 for k in sorted(props.keys())
                  if not args.only_key or k in args.only_key]
         if args.only_vals:
             for k, v in props:

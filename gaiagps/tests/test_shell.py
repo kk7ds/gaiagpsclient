@@ -5,14 +5,18 @@ import mock
 import os
 import pprint
 import shlex
+import tempfile
 import unittest
 
 from gaiagps import apiclient
 from gaiagps import shell
+from gaiagps.tests import test_apiclient
+from gaiagps.tests import test_util
 from gaiagps import util
 
 
 client = apiclient.GaiaClient
+_test_name = test_apiclient._test_name
 
 
 class FakeOutput(io.StringIO):
@@ -1314,3 +1318,165 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('No matching objects', out)
         mock_put.assert_not_called()
+
+
+class TestShellFunctional(test_apiclient.BaseClientFunctional):
+    @mock.patch.object(shell, 'cookiejar')
+    def _run(self, cmdline, mock_cookies, expect_fail=False):
+        mock_cookies.return_value.__enter__.return_value = self.cookies
+        out = FakeOutput()
+        with mock.patch.multiple('sys', stdout=out, stderr=out, stdin=out):
+            rc = shell.main(shlex.split(cmdline))
+        print(out.getvalue())
+        if not expect_fail:
+            self.assertEqual(0, rc)
+        else:
+            self.assertNotEqual(0, rc)
+        return out.getvalue()
+
+    def _import_sample_gpx(self):
+        tmp = tempfile.mktemp('.gpx', 'tests-')
+        with open(tmp, 'w') as f:
+            f.write(test_util.GPX_WITH_EXTENSIONS)
+        out = self._run('--verbose upload --strip-gpx-extensions %s' % tmp)
+        self.assertNotIn('queued', out,
+                         'Server started queuing our test data')
+        self.addCleanup(lambda: os.remove(tmp))
+        import_folder_name = _test_name('import')
+        self._run('folder rename "%s" "%s"' % (
+            'clean-%s' % os.path.basename(tmp), import_folder_name))
+        return tmp, import_folder_name
+
+    def test_track_ops(self):
+        tmp, import_folder_name = self._import_sample_gpx()
+        name = _test_name('test track')
+
+        # Dump
+        out = self._run('track dump "%s"' % name)
+        self.assertIn(name, out)
+        self.assertNotIn('#00ff00', out.lower())
+
+        # Show
+        out = self._run('track show "%s"' % name)
+        self.assertIn(name, out)
+
+        # List
+        out = self._run('track list')
+        self.assertIn(name, out)
+
+        # Colorize
+        self._run('track colorize --color #00ff00 "%s"' % name)
+        out = self._run('track dump "%s"' % name)
+        self.assertIn(name, out)
+        self.assertIn('#00ff00', out.lower())
+
+        # Rename
+        newname = name + ' NEW'
+        self._run('track rename "%s" "%s"' % (name, newname))
+        out = self._run('track show "%s"' % newname)
+        self.assertIn(newname, out)
+        name = newname
+
+        # Url
+        out = self._run('track url "%s"' % name)
+        self.assertIn('https://www.gaiagps', out)
+
+        # Archive, Unarchive
+        self._run('track archive "%s"' % name)
+        out = self._run('track list --archived=no')
+        self.assertNotIn(name, out)
+        self._run('track unarchive "%s"' % name)
+        out = self._run('track list --archived=no')
+        self.assertIn(name, out)
+
+        # Move
+        folder = _test_name('foo')
+        self._run('folder add "%s"' % folder)
+        self._run('track move "%s" "%s"' % (name, folder))
+        out = self._run('track list')
+        self.assertRegex(out, r'(?m)^.*%s.*%s.*$' % (name, folder))
+
+        # Remove
+        self._run('track remove "%s"' % name)
+        self._run('track show "%s"' % name,
+                  expect_fail=True)
+        self._run('folder remove --force "%s"' % folder)
+
+    def test_waypoint_ops(self):
+        name = _test_name('wpt')
+        folder = _test_name('folder')
+
+        # Add
+        self._run('waypoint add --notes "these are notes" --icon chemist '
+                  '--new-folder "%s" "%s" 45.123 -122.9876 42' % (
+                      folder, name))
+        out = self._run('waypoint list')
+        self.assertIn(name, out)
+        self.assertIn(folder, out)
+
+        # Dump
+        out = self._run('waypoint dump "%s"' % name)
+        self.assertIn(name, out)
+
+        # Show
+        out = self._run('waypoint show "%s"' % name)
+        self.assertIn(name, out)
+
+        # Coords
+        out = self._run('waypoint coords "%s"' % name)
+        self.assertIn('45.123', out)
+        self.assertIn('-122.9876', out)
+
+        # Url
+        out = self._run('waypoint url "%s"' % name)
+        self.assertIn('https://www.gaiagps', out)
+
+        # List match
+        out = self._run('waypoint list --match "gaia.*wpt"')
+        self.assertIn(name, out)
+
+        # Archive, Unarchive
+        self._run('waypoint archive "%s"' % name)
+        out = self._run('waypoint list --archived=no')
+        self.assertNotIn(name, out)
+        self._run('waypoint unarchive "%s"' % name)
+        out = self._run('waypoint list --archived=no')
+        self.assertIn(name, out)
+
+        # Move
+        self._run('waypoint move "%s" /' % name)
+        out = self._run('waypoint list')
+        self.assertNotIn(folder, out)
+        self._run('waypoint move "%s" "%s"' % (name, folder))
+        out = self._run('waypoint list')
+        self.assertIn(folder, out)
+
+        # Rename
+        newname = name + ' NEW'
+        self._run('waypoint rename "%s" "%s"' % (name, newname))
+        out = self._run('waypoint show "%s"' % newname)
+        self.assertIn(newname, out)
+        name = newname
+
+        # Remove
+        self._run('waypoint remove "%s"' % name)
+        out = self._run('waypoint list')
+        self.assertNotIn(name, out)
+        self._run('folder remove --force "%s"' % folder)
+
+    def test_bug_track_colors_ignored(self):
+        # Test that honoring imported track colors is still unimplemented
+        # in gaiagps.com. This servces as a sentinel for when the cookbook
+        # doc item (and colorize --from-gpx-file) can be removed.
+        tmp = tempfile.mktemp('.gpx', 'tests-')
+        with open(tmp, 'w') as f:
+            f.write(test_util.GPX_WITH_EXTENSIONS.replace('Red', 'Green'))
+        out = self._run('--verbose upload %s' % tmp)
+        self.assertNotIn('queued', out,
+                         'Server started queuing our test data')
+        self.addCleanup(os.remove, tmp)
+        foldername = os.path.basename(tmp)
+        trackname = _test_name('test track')
+        self.addCleanup(self._run, 'folder remove --force "%s"' % foldername)
+        out = self._run('track show -K color -V "%s"' % trackname)
+        self.assertEqual('#ff0000', out.strip())

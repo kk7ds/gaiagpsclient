@@ -308,6 +308,10 @@ GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
         <ele>230.43359375</ele>
         <time>2018-07-11T15:25:05Z</time>
       </trkpt>
+      <trkpt lat="45.35285241620567" lon="-122.914925316303968">
+        <ele>230.43359375</ele>
+        <time>2018-07-11T15:35:15Z</time>
+      </trkpt>
     </trkseg>
   </trk>
 </gpx>
