@@ -1282,14 +1282,14 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('--verbose track colorize --from-gpx-file foo.gpx '
                         '--match trk')
         self.assertIn('\'trk2\' not found in GPX file', out)
-        self.assertIn('Coloring track \'201\'', out)
+        self.assertIn('Coloring track \'trk1\'', out)
         mock_put.assert_any_call('track', {'id': '201',
                                            'color': '#F90553'})
 
         # Run all found in the gpx data
         mock_put.reset_mock()
         out = self._run('--verbose track colorize --from-gpx-file foo.gpx')
-        self.assertIn('Coloring track \'201\'', out)
+        self.assertIn('Coloring track \'trk1\'', out)
         self.assertNotIn('trk3', out)
         mock_put.assert_any_call('track', {'id': '201',
                                            'color': '#F90553'})

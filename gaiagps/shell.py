@@ -968,8 +968,8 @@ class Track(Command):
         return self._edit(args, editable)
 
     def _colorize_tracks_by_id(self, dry_run, tracks):
-        for track_id, color_code in tracks.items():
-            self.verbose('Coloring track %r %r' % (track_id, color_code))
+        for (track_name, track_id), color_code in tracks.items():
+            self.verbose('Coloring track %r %r' % (track_name, color_code))
             if dry_run:
                 continue
             if not self.client.put_object('track',
@@ -1002,7 +1002,8 @@ class Track(Command):
             colors = list(util.COLOR_ALIASES.values())
             self._colorize_tracks_by_id(
                 args.dry_run,
-                {t['id']: random.choice(colors) for t in only_folder(objs)})
+                {(t['title'], t['id']): random.choice(colors)
+                 for t in only_folder(objs)})
         elif args.from_gpx_file:
             gpx_tracks = util.get_track_colors_from_gpx(args.from_gpx_file)
             to_change = {}
@@ -1025,7 +1026,7 @@ class Track(Command):
 
             for obj in only_folder(objs):
                 if obj['title'] in gpx_tracks:
-                    to_change[obj['id']] = (
+                    to_change[(obj['title'], obj['id'])] = (
                         util.COLOR_ALIASES[
                             util.GPXX_COLORS_TO_GAIA[
                                 gpx_tracks[obj['title']]]])
@@ -1041,7 +1042,7 @@ class Track(Command):
                 args.color = '#%s' % args.color
             self._colorize_tracks_by_id(
                 args.dry_run,
-                {o['id']: args.color for o in only_folder(objs)})
+                {(o['title'], o['id']): args.color for o in only_folder(objs)})
 
 
 class Folder(Command):
