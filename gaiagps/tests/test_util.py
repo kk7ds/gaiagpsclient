@@ -239,7 +239,7 @@ class TestUtilUnit(unittest.TestCase):
     def test_get_track_colors_from_gpx(self, mock_open):
         input = io.BytesIO(GPX_WITH_EXTENSIONS.encode())
         mock_open.return_value = input
-        self.assertEqual({'test track': 'Red'},
+        self.assertEqual({'gaiagpsclient test data test track': 'Red'},
                          util.get_track_colors_from_gpx('foo'))
 
     @mock.patch('builtins.open')
@@ -255,7 +255,8 @@ class TestUtilUnit(unittest.TestCase):
                           util.get_track_colors_from_gpx, 'input-file')
 
         noname = copy.copy(GPX_WITH_EXTENSIONS)
-        noname = noname.replace('<name>test track</name>', '')
+        noname = noname.replace(
+            '<name>gaiagpsclient test data test track</name>', '')
         input = io.BytesIO(noname.encode())
         mock_open.return_value = input
         self.assertEqual({}, util.get_track_colors_from_gpx('input-file'))
@@ -280,7 +281,7 @@ GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
   <wpt lat="43.1944465264678" lon="-121.594601729884744">
     <ele>1621.01171875</ele>
     <time>2015-01-03T19:46:03Z</time>
-    <name>10</name>
+    <name>gaiagpsclient test data 10</name>
     <sym>Flag, Blue</sym>
     <type>user</type>
     <extensions>
@@ -296,7 +297,7 @@ GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
     </extensions>
   </wpt>
   <trk>
-    <name>test track</name>
+    <name>gaiagpsclient test data test track</name>
     <extensions>
       <gpxx:TrackExtension>
         <gpxx:DisplayColor>Red</gpxx:DisplayColor>
