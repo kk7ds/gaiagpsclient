@@ -131,6 +131,10 @@ def list_and_dump_ops(cmds):
                             'inclusive range with START:END.'))
     list.add_argument('--archived', action=FuzzyBoolean,
                       help='Match items with archived state ("yes" or "no")')
+    list.add_argument('--format',
+                      help=('Set explicit output format instead of default '
+                            'table layout. Use --format=help for '
+                            'instructions'))
     dump = cmds.add_parser('dump', help='Raw dump of the data structure',
                            description=('Dump the low-level representation of '
                                         'an object on the server '
@@ -398,6 +402,34 @@ class Command(object):
             return False
 
     def list(self, args):
+        if args.format and args.format.lower() == 'help':
+            msg = ['--format takes a python-like format string, such as: ',
+                   '',
+                   '    %(title)s: %(latitude).4f,%(longitude).5f',
+                   '',
+                   'which might display something like this:',
+                   '',
+                   '    My Campsite: 45.1234,-122.98765',
+                   '',
+                   'Where the field name can be anything in "properties" ',
+                   'for an object (as displayed by the "show" command). ',
+                   'Also, the following special format keys are available: ',
+                   '']
+            fmt = util.ThingFormatter({})
+            for key in fmt.keys:
+                doc = getattr(fmt, 'format_%s' % key).__doc__
+                msg.append(' - %s: %s' % (key, doc))
+
+            msg.extend(
+                ['',
+                 'Note that using --format causes an API call for each item ',
+                 'in a list in order to fetch the full set of properties. ',
+                 'Please limit the list in some way to avoid undue stress ',
+                 'on gaiagps.com.'])
+
+            print(os.linesep.join(msg))
+            return 0
+
         if args.by_id:
             return self.idlist(args)
 
@@ -435,10 +467,18 @@ class Command(object):
                 continue
             if only_archived and not item['deleted']:
                 continue
-            table.add_row([item['title'],
-                           util.datefmt(item),
-                           item['folder_name']])
-        print(table)
+            if args.format:
+                # This is unfortunately very heavy, but since we do not seem to
+                # be able to get whole objects in list format, this is really
+                # the only option at the moment.
+                item = self.get_object(item['id'])
+                print(args.format % util.ThingFormatter(item))
+            else:
+                table.add_row([item['title'],
+                               util.datefmt(item),
+                               item['folder_name']])
+        if not args.format:
+            print(table)
 
     def dump(self, args):
         pprint.pprint(self.get_object(args.name))

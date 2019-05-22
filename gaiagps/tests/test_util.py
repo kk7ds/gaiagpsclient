@@ -268,6 +268,36 @@ class TestUtilUnit(unittest.TestCase):
         mock_open.return_value = input
         self.assertEqual({}, util.get_track_colors_from_gpx('input-file'))
 
+    def test_thingformatter_keys(self):
+        self.assertEqual(
+            sorted(['title', 'created', 'updated', 'id',
+                    'altitude', 'public', 'notes']),
+            sorted(util.ThingFormatter({'properties': {'notes': ''}}).keys))
+
+    def test_thingformatter_wpt(self):
+        f = util.ThingFormatter(TEST_WPT)
+        self.assertEqual('TestPoint 8873927a-820b-4a75-b15a-c3e40d383006',
+                         '%(title)s %(id)s' % f)
+
+        # Complex type formatting
+        self.assertEqual('45.5 / -122.7',
+                         '%(latitude).1f / %(longitude).1f' % f)
+
+        # Implicit "anything in properties" should also work
+        self.assertEqual('TestPoint True',
+                         '%(title)s %(is_active)s' % f)
+
+    def test_thingformatter_trk(self):
+        f = util.ThingFormatter(TEST_TRK)
+        self.assertEqual('ph-closed2 b0298a9a30b073b3493ca54e3a1417bb',
+                         '%(title)s %(id)s' % f)
+        self.assertEqual('0000',
+                         '%(moving_speed)04i' % f)
+
+    def test_thingformatter_edges(self):
+        f = util.ThingFormatter({})
+        self.assertEqual('UNSUPPORTED', f['snarf'])
+
 
 GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:wptx1="http://www.garmin.com/xmlschemas/WaypointExtension/v1" xmlns:gpxtrx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:trp="http://www.garmin.com/xmlschemas/TripExtensions/v1" xmlns:adv="http://www.garmin.com/xmlschemas/AdventuresExtensions/v1" xmlns:prs="http://www.garmin.com/xmlschemas/PressureExtension/v1" xmlns:tmd="http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1" xmlns:vptm="http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1" xmlns:ctx="http://www.garmin.com/xmlschemas/CreationTimeExtension/v1" xmlns:gpxacc="http://www.garmin.com/xmlschemas/AccelerationExtension/v1" xmlns:gpxpx="http://www.garmin.com/xmlschemas/PowerExtension/v1" xmlns:vidx1="http://www.garmin.com/xmlschemas/VideoExtension/v1" creator="Garmin Desktop App" version="1.1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/WaypointExtension/v1 http://www8.garmin.com/xmlschemas/WaypointExtensionv1.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/ActivityExtension/v1 http://www8.garmin.com/xmlschemas/ActivityExtensionv1.xsd http://www.garmin.com/xmlschemas/AdventuresExtensions/v1 http://www8.garmin.com/xmlschemas/AdventuresExtensionv1.xsd http://www.garmin.com/xmlschemas/PressureExtension/v1 http://www.garmin.com/xmlschemas/PressureExtensionv1.xsd http://www.garmin.com/xmlschemas/TripExtensions/v1 http://www.garmin.com/xmlschemas/TripExtensionsv1.xsd http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1 http://www.garmin.com/xmlschemas/TripMetaDataExtensionsv1.xsd http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1 http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensionsv1.xsd http://www.garmin.com/xmlschemas/CreationTimeExtension/v1 http://www.garmin.com/xmlschemas/CreationTimeExtensionsv1.xsd http://www.garmin.com/xmlschemas/AccelerationExtension/v1 http://www.garmin.com/xmlschemas/AccelerationExtensionv1.xsd http://www.garmin.com/xmlschemas/PowerExtension/v1 http://www.garmin.com/xmlschemas/PowerExtensionv1.xsd http://www.garmin.com/xmlschemas/VideoExtension/v1 http://www.garmin.com/xmlschemas/VideoExtensionv1.xsd">
@@ -316,3 +346,80 @@ GPX_WITH_EXTENSIONS = """<?xml version="1.0"?>
   </trk>
 </gpx>
 """  # noqa
+
+
+TEST_WPT = {'geometry': {'coordinates': [-122.68157958984, 45.499278510068024],
+                         'type': 'Point'},
+            'id': '8873927a-820b-4a75-b15a-c3e40d383006',
+            'properties': {'attr': 'null',
+                           'deleted': True,
+                           'elevation': 0,
+                           'icon': 'chemist-24.png',
+                           'id': '8873927a-820b-4a75-b15a-c3e40d383006',
+                           'is_active': True,
+                           'latitude': 45.499278510068024,
+                           'longitude': -122.68157958984,
+                           'notes': 'Multi1a',
+                           'photos': [],
+                           'public': False,
+                           'revision': 5210,
+                           'time_created': '2019-05-15T14:20:50Z',
+                           'title': 'TestPoint',
+                           'track_id': '',
+                           'updated_date': '2019-05-15T14:20:50Z',
+                           'writable': True},
+            'type': 'Feature'}
+
+
+TEST_TRK = {'features': [{'geometry': {'coordinates': [[[-120.221565,
+                                                         44.600239,
+                                                         731.0,
+                                                         1554770257.0],
+                                                        [-120.271149,
+                                                         44.739372,
+                                                         463.0,
+                                                         978307200.0]]],
+                                       'type': 'MultiLineString'},
+                          'properties': {'average_speed': -3.585747935330069e-05,  # noqa
+                                         'color': '#0497ff',
+                                         'comment_count': 0,
+                                         'cover_photo_id': None,
+                                         'db_insert_date': '2019-04-09T00:43:50Z',  # noqa
+                                         'deleted': False,
+                                         'distance': 20670.5121643181,
+                                         'favorite_count': 0,
+                                         'flag': None,
+                                         'hexcolor': '#0497ff',
+                                         'id': 'b0298a9a30b073b3493ca54e3a1417bb',  # noqa
+                                         'is_active': True,
+                                         'is_favorite': False,
+                                         'last_updated_on_server': '2019-05-20T20:36:35.124',  # noqa
+                                         'latitude': 44.66554264292247,
+                                         'longitude': -120.24934389109352,
+                                         'moving_speed': 0,
+                                         'moving_time': -576463057.0,
+                                         'notes': 'These are newnotes',
+                                         'preferred_link': '/datasummary/track/b0298a9a30b073b3493ca54e3a1417bb/',  # noqa
+                                         'public': False,
+                                         'revision': 5213,
+                                         'routing_mode': None,
+                                         'source': '',
+                                         'stopped_time': 0.0,
+                                         'time_created': '2019-04-09T00:43:47Z',  # noqa
+                                         'title': 'ph-closed2',
+                                         'total_ascent': 98.0,
+                                         'total_descent': 366.0,
+                                         'total_time': -576463057.0,
+                                         'track_type': '',
+                                         'updated_date': '2019-05-20T20:36:35Z',  # noqa
+                                         'uploaded_gpx_to_osm': None,
+                                         'user_displayname': 'dsmith',
+                                         'user_email': 'dsmith@danplanet.com',
+                                         'user_id': 454408,
+                                         'user_photo_count': 0,
+                                         'username': 'dsmith@danplanet.com',
+                                         'writable': True},
+                          'style': {'stroke': '#0497ff'},
+                          'type': 'Feature'}],
+            'id': 'b0298a9a30b073b3493ca54e3a1417bb',
+            'type': 'FeatureCollection'}

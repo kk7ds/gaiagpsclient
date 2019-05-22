@@ -1,4 +1,5 @@
 import datetime
+import functools
 import logging
 import os
 import pytz
@@ -116,7 +117,7 @@ GPXX_COLORS_TO_GAIA = {
 }
 
 
-def date_parse(thing):
+def date_parse(thing, property_name='time_created'):
     """Parse a local datetime from a thing with a datestamp.
 
     This attempts to find a datestamp in an object and parse it for
@@ -131,7 +132,7 @@ def date_parse(thing):
     :returns: A localized tz-aware `datetime` or None if no datestamp is found.
     :rtype: :class:`datetime.datetime`
     """
-    ds = thing.get('time_created') or thing['properties'].get('time_created')
+    ds = thing.get(property_name) or thing['properties'].get(property_name)
     if not ds:
         return None
 
@@ -146,7 +147,7 @@ def date_parse(thing):
     return dt.astimezone(tzlocal.get_localzone())
 
 
-def datefmt(thing):
+def datefmt(thing, property_name='time_created'):
     """Nicely format a thing with a datestamp.
 
     See :func:`~date_parse` for more information.
@@ -157,7 +158,7 @@ def datefmt(thing):
               or is parseable
     :rtype: `str`
     """
-    localdt = date_parse(thing)
+    localdt = date_parse(thing, property_name=property_name)
     if localdt:
         return localdt.strftime('%d %b %Y %H:%M:%S')
     else:
@@ -518,3 +519,87 @@ def get_track_colors_from_gpx(source_file):
         tracks[name] = color
 
     return tracks
+
+
+class ThingFormatter(object):
+    """Format helper for GaiaGPS objects.
+
+    This is intended to digest an object from the API and provide
+    a relatively safe dict-like formatting object for strings.
+
+    Example usage:
+
+       obj = client.get_object( ... )
+       fmt = ThingFormatter(obj)
+       print('%(title)s' % fmt)
+
+    :param thing: An object from the GaiaGPS API as returned from
+                  :class:`GaiaClient`
+    :type thing: dict
+    """
+
+    def __init__(self, thing):
+        self._thing = thing
+
+    @property
+    def keys(self):
+        """A list of keys we definitely support for formatting"""
+        static = set([k.replace('format_', '') for k in dir(self)
+                      if k.startswith('format_') and
+                      callable(getattr(self, k))])
+        dynamic = set(self._find_props().keys())
+        return static | dynamic
+
+    def __getitem__(self, item):
+        try:
+            method = getattr(self, 'format_%s' % item)
+        except AttributeError:
+            if item in self._find_props():
+                method = functools.partial(self._find_props().get, item)
+            else:
+                LOG.info('Unsupported format key %r' % item)
+                method = lambda: 'UNSUPPORTED'  # noqa
+
+        try:
+            return method()
+        except Exception as e:
+            LOG.info('Error formatting %r: %s' % (item, e))
+            LOG.debug(self._thing)
+            return 'ERROR'
+
+    def _find_props(self):
+        try:
+            return self._thing['properties']
+        except KeyError:
+            try:
+                return self._thing['features'][0]['properties']
+            except KeyError:
+                return {}
+
+    def format_title(self):
+        """The title or name"""
+        props = self._find_props()
+        try:
+            return props['title']
+        except KeyError:
+            return props['name']
+
+    def format_created(self):
+        """The "time_created" datestamp"""
+        return datefmt(self._find_props(), 'time_created')
+
+    def format_updated(self):
+        """The "updated_date" datestamp"""
+        return datefmt(self._find_props(), 'updated_date')
+
+    def format_id(self):
+        """The internal GaiaGPS identifier"""
+        return self._thing['id']
+
+    def format_altitude(self):
+        """The altitude (elevation)"""
+        return self._find_props()['elevation']
+
+    def format_public(self):
+        """The "public" or "private" status"""
+        return self._find_props()['public'] and 'public' or 'private'

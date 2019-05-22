@@ -196,6 +196,16 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('subfolder', out)
         self.assertNotIn('folder2', out)
 
+    @mock.patch('gaiagps.util.is_id', new=lambda i: True)
+    def test_list_formatted(self):
+        out = self._run('waypoint list --match wpt1 '
+                        '--format "%(title)s"')
+        self.assertEqual('wpt1', out.strip())
+
+    def test_list_format_help(self):
+        out = self._run('waypoint list --format=help')
+        self.assertIn('format takes', out)
+
     def test_list_trk(self):
         out = self._run('track list')
         self.assertIn('trk1', out)
