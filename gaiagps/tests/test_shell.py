@@ -815,6 +815,26 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('upload has been queued', out)
         self.assertIn('Unable to move', out)
 
+    @mock.patch('time.sleep')
+    @mock.patch.object(FakeClient, 'get_object')
+    @mock.patch.object(FakeClient, 'upload_file')
+    def test_upload_queued_poll(self, mock_upload, mock_get, mock_sleep):
+        mock_upload.return_value = None
+        mock_get.side_effect = [apiclient.NotFound,
+                                apiclient.NotFound,
+                                {'id': 'foo',
+                                 'properties': {
+                                     'name': 'folder'}}]
+        out = self._run('--verbose upload --poll foo.gpx')
+        self.assertIn('..done', out)
+        mock_get.assert_has_calls([mock.call('folder', 'foo.gpx'),
+                                   mock.call('folder', 'foo.gpx'),
+                                   mock.call('folder', 'foo.gpx')])
+
+        mock_get.side_effect = apiclient.NotFound
+        out = self._run('--verbose upload --poll foo.gpx')
+        self.assertIn('queued at the server', out)
+
     @mock.patch.object(FakeClient, 'set_objects_archive')
     def _test_archive_waypoint(self, cmd, mock_archive):
         args = [

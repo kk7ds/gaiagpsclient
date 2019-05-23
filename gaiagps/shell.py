@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import time
 import traceback
 import yaml
 
@@ -228,7 +229,7 @@ class Command(object):
     def __init__(self, client, verbose=False):
         self.client = client
         if verbose:
-            self.verbose = lambda x: print(x)
+            self.verbose = lambda x, e=None: print(x, end=e)
         else:
             self.verbose = lambda x: None
 
@@ -1194,7 +1195,26 @@ class Upload(Command):
                                   'GPX files and may help improve '
                                   'compatibility as gaiagps will choke on '
                                   'files with extensions.'))
+        parser.add_argument('--poll', action='store_true',
+                            help=('Poll server for up to a minute for '
+                                  'completion in the case where an upload '
+                                  'is queued for processing.'))
         folder_ops(parser)
+
+    def _poll_for_upload(self, expected_folder):
+        sleep_time = 5
+        timeout = 60
+        self.verbose('Waiting for upload to appear...', '')
+        for i in range(0, timeout // sleep_time):
+            try:
+                folder = self.client.get_object('folder', expected_folder)
+                self.verbose('done')
+                return folder
+            except apiclient.NotFound:
+                pass
+
+            self.verbose('.', '')
+            time.sleep(sleep_time)
 
     def default(self, args):
         log = logging.getLogger('upload')
@@ -1212,7 +1232,11 @@ class Upload(Command):
                                          objtype='folder')
         else:
             dst_folder = None
+
         new_folder = self.client.upload_file(args.filename)
+
+        if not new_folder and args.poll:
+            new_folder = self._poll_for_upload(os.path.basename(args.filename))
 
         if not new_folder:
             print('File upload has been queued at the server and '
