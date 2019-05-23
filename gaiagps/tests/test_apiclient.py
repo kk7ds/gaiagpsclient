@@ -269,6 +269,16 @@ class TestClientUnit(unittest.TestCase):
             self.assertIsNone(folder)
             mock_get.assert_not_called()
 
+    @mock.patch('builtins.open')
+    def test_upload_rejected(self, mock_open):
+        api = self.get_api()
+
+        self.requests.post.return_value.url = 'foo/upload/'
+        with mock.patch.object(api, 'get_object') as mock_get:
+            self.assertRaises(RuntimeError,
+                              api.upload_file, 'path/to/foo.gpx')
+            mock_get.assert_not_called()
+
     def test_gurl(self):
         self.assertEqual('https://www.gaiagps.com/a/b/',
                          apiclient.gurl('a', 'b'))

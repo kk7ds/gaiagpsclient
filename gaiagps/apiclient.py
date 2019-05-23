@@ -374,6 +374,11 @@ class GaiaClient(object):
             return None
 
         folder_id = r.url.rstrip('/').split('/')[-1]
+        if folder_id == 'upload':
+            # Redirected back to the upload page, which means the server
+            # does not like our file
+            raise RuntimeError('Server rejected file (likely '
+                               'unsupported type)')
         LOG.debug('Upload URL is %s, folder id is %s' % (r.url, folder_id))
         return self.get_object('folder', id_=folder_id)
 
