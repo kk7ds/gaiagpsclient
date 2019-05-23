@@ -1199,6 +1199,9 @@ class Upload(Command):
                             help=('Poll server for up to a minute for '
                                   'completion in the case where an upload '
                                   'is queued for processing.'))
+        parser.add_argument('--colorize-tracks', action='store_true',
+                            help=('Attempt to colorize tracks after upload '
+                                  'to match the source file (GPX only)'))
         folder_ops(parser)
 
     def _poll_for_upload(self, expected_folder):
@@ -1250,6 +1253,20 @@ class Upload(Command):
         log.info('Uploaded file to new folder %s/%s' % (
             new_folder['properties']['name'],
             new_folder['id']))
+
+        if args.colorize_tracks:
+            track_cmd = Track(self.client, verbose=args.verbose)
+            args.name = []
+            args.match = None
+            args.random = None
+            args.dry_run = None
+            args.from_gpx_file = args.filename
+            args.in_folder = new_folder['properties']['name']
+            try:
+                track_cmd.colorize(args)
+            except Exception as e:
+                log.debug(traceback.format_exc())
+                print('Failed to colorize track: %s' % e)
 
         if args.new_folder:
             dst_folder = self.client.create_object('folder',

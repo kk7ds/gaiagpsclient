@@ -840,6 +840,28 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('--verbose upload --poll foo.gpx')
         self.assertIn('queued at the server', out)
 
+    @mock.patch.object(FakeClient, 'upload_file')
+    @mock.patch('gaiagps.util.get_track_colors_from_gpx')
+    @mock.patch.object(FakeClient, 'put_object')
+    def test_upload_colorize_tracks(self, mock_put, mock_colors, mock_upload):
+        mock_upload.return_value = {'id': '102',
+                                    'properties': {'name': 'folder2'}}
+        mock_colors.return_value = {'trk1': 'Red',
+                                    'trk2': 'Green'}
+        self._run('--verbose upload --colorize-tracks foo.gpx')
+        # Since we're reusing fake folder2 from the fixture, which has
+        # only trk2 in it, we expect to only see trk2 updated since
+        # upload calls colorize with the GPX upload folder
+        mock_put.assert_called_once_with('track',
+                                         {'id': '202',
+                                          'color': '#36C03B'})
+
+        # Try again without a gpx file and make sure we report it,
+        # but do not fail
+        mock_colors.side_effect = Exception('Not a gpx file')
+        out = self._run('--verbose upload --colorize-tracks foo.kml')
+        self.assertIn('Failed to colorize', out)
+
     @mock.patch.object(FakeClient, 'set_objects_archive')
     def _test_archive_waypoint(self, cmd, mock_archive):
         args = [
