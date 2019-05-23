@@ -111,13 +111,10 @@ you can more easily see where they begin and end:
 .. prompt:: bash $ auto
 
   $ gaiagps track colorize --verbose --random --match 'Memorial Day Hikes'
-  Coloring track 'b2addc30-4c1e-4ac3-b812-7624f97b631e' '#F90553'
-  Coloring track '1344c969-50b0-4ee6-87bd-d6d23dd5a202' '#000000'
-  Coloring track 'ca7083fe-eb17-498e-bd7d-841f0ab54513' '#F90553'
-  Coloring track '82945a6f-319e-4af2-9885-b73094ec86bb' '#FFF011'
-  Coloring track 'fc1afb0b-47f5-42a9-86d7-55616581ec14' '#009B89'
-  Coloring track '03d553aa-9598-48ff-842d-640ba2cf6941' '#FFC900'
-  Coloring track '4d556b5b-60fa-4c42-a5d9-5a12b98cf44e' '#B60DC3'
+  Coloring track 'Hike Day 1' '#F90553'
+  Coloring track 'Hike Day 2' '#000000'
+  Coloring track 'Hike Day 3' '#F90553'
+  Coloring track 'Hike Day 1' '#FFF011'
 
 .. note:: Be sure to use ``--dry-run`` and ``--verbose`` when working
           with this function to check an operation before you let it
@@ -149,5 +146,11 @@ file and then re-process it for track color information:
   +-------------------------+----------------------+-------------------+
   $ gaiagps track colorize --verbose --from-gpx-file=foo.gpx
   Looked up 2 tracks from 2 found in GPX file
-  Coloring '3e009336-cba5-4d4d-a06a-e8a04d942520' to '#F90553'
-  Coloring '2409824e-89bd-4f61-a357-df3e5e1b740b' to '#A4A4A4'
+  Coloring 'Path to trailhead' to '#F90553'
+  Coloring 'Epic mountaintop hike' to '#A4A4A4'
+
+.. note:: It is also possible to do this as a single operation, by
+          passing ``--colorize-tracks`` to ``upload``. You will likely
+          need ``--poll`` as well as larger files with long tracks are
+          likely to be queued by the server for background processing
+          and track colorizing must be done after that is complete.
