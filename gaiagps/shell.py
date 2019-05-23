@@ -1217,6 +1217,7 @@ class Upload(Command):
                 pass
 
             self.verbose('.', '')
+            sys.stdout.flush()
             time.sleep(sleep_time)
 
     def default(self, args):
