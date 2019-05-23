@@ -295,6 +295,11 @@ class TestUtilUnit(unittest.TestCase):
                          '%(moving_speed)04i' % f)
 
     def test_thingformatter_edges(self):
+        # Altitude will fail with KeyError and trigger the error path
+        f = util.ThingFormatter({'properties': {}})
+        self.assertEqual('ERROR', f['altitude'])
+
+        # General property fallback, missing key
         f = util.ThingFormatter({})
         self.assertEqual('UNSUPPORTED', f['snarf'])
 

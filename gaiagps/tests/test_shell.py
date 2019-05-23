@@ -93,11 +93,16 @@ class FakeClient(object):
 
     def get_object(self, objtype, name=None, id_=None, fmt=None):
         def add_props(o):
-            return dict(o,
-                        properties=o.get('properties',
-                                         {'time_created':
-                                          '2019-01-01T02:03:04Z'}),
-                        deleted=o.get('deleted', False))
+            o = copy.deepcopy(o)
+            if o['title'].startswith('trk'):
+                p = o.get('features', list([dict()]))[0]
+            else:
+                p = o
+            p.setdefault('properties',
+                         {'time_created':
+                          '2019-01-01T02:03:04Z'})
+            p.setdefault('deleted', False)
+            return o
 
         if name:
             key = 'title'
@@ -1147,6 +1152,11 @@ class TestShellUnit(unittest.TestCase):
 
     def test_show_waypoint(self):
         out = self._run('waypoint show wpt3')
+        self.assertIn('time_created', out)
+        self.assertIn('title', out)
+
+    def test_show_track(self):
+        out = self._run('track show trk1')
         self.assertIn('time_created', out)
         self.assertIn('title', out)
 

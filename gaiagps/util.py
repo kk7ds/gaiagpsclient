@@ -132,7 +132,14 @@ def date_parse(thing, property_name='time_created'):
     :returns: A localized tz-aware `datetime` or None if no datestamp is found.
     :rtype: :class:`datetime.datetime`
     """
-    ds = thing.get(property_name) or thing['properties'].get(property_name)
+    if property_name in thing:
+        ds = thing[property_name]
+    elif 'properties' in thing:
+        ds = thing['properties'].get(property_name)
+    elif 'features' in thing:
+        ds = thing['features'][0]['properties'].get(property_name)
+    else:
+        ds = None
     if not ds:
         return None
 
