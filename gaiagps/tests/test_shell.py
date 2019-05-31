@@ -276,6 +276,22 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('wpt1', out)
         self.assertNotIn('wpt2', out)
 
+    def test_list_in_folder(self):
+        # List a folder with contents
+        out = self._run('waypoint list --in-folder folder1')
+        self.assertNotIn('wpt1', out)
+        self.assertIn('wpt2', out)
+
+        # List the root
+        out = self._run('waypoint list --in-folder ""')
+        self.assertIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+
+        # List empty folder, no results
+        out = self._run('waypoint list --in-folder folder2')
+        self.assertNotIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move(self, mock_add, verbose=False, dry=False):
         out = self._run('%s waypoint move wpt1 wpt2 folder2 %s' % (
@@ -316,15 +332,16 @@ class TestShellUnit(unittest.TestCase):
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_none(self, mock_add):
-        out = self._run('waypoint move --match-date 2019-03-14 folder2')
+        out = self._run('waypoint move --match-date 2019-03-14 folder2',
+                        expect_fail=True)
         self.assertIn('', out)
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
     def test_move_match_ambiguous(self, mock_add):
-        out = self._run('waypoint move folder2',
+        out = self._run('--verbose waypoint move folder2',
                         expect_fail=True)
-        self.assertIn('Specify', out)
+        self.assertIn('No items', out)
         mock_add.assert_not_called()
 
     @mock.patch.object(FakeClient, 'add_object_to_folder')
@@ -339,6 +356,11 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('waypoint move wpt1 wpt2 /')
         mock_remove.assert_has_calls([mock.call('101', 'waypoint', '002')])
         self.assertIn('\'wpt1\' is already at root', out)
+
+    @mock.patch.object(FakeClient, 'add_object_to_folder')
+    def test_move_in_folder_all(self, mock_add):
+        self._run('--verbose waypoint move --in-folder folder1 folder2')
+        mock_add.assert_called_once_with('102', 'waypoint', '002')
 
     @mock.patch.object(FakeClient, 'delete_object')
     def test_remove(self, mock_delete, dry=False):
@@ -366,6 +388,30 @@ class TestShellUnit(unittest.TestCase):
         out = self._run('--verbose waypoint remove wpt7',
                         expect_fail=True)
         self.assertIn('not found', out)
+        mock_delete.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_in_folder_all(self, mock_delete):
+        out = self._run('--verbose waypoint remove --in-folder folder1')
+        self.assertIn('wpt2', out)
+        mock_delete.assert_called_once_with('waypoint', '002')
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_in_folder_filter(self, mock_delete):
+        out = self._run('--verbose waypoint remove --in-folder folder1 wpt2')
+        self.assertIn('wpt2', out)
+        mock_delete.assert_called_once_with('waypoint', '002')
+
+        # If we limit to a folder and by name, make sure we take the
+        # intersection and not the union
+        mock_delete.reset_mock()
+        out = self._run('--verbose waypoint remove --in-folder folder1 wpt1')
+        self.assertEqual('', out)
+        mock_delete.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'delete_object')
+    def test_remove_nothing(self, mock_delete):
+        self._run('waypoint remove')
         mock_delete.assert_not_called()
 
     @mock.patch.object(FakeClient, 'delete_object')
@@ -782,7 +828,7 @@ class TestShellUnit(unittest.TestCase):
         mock_dump.side_effect = _dump
 
         # All items in a folder
-        self._run('waypoint edit --in-folder subfolder')
+        self._run('--verbose waypoint edit --in-folder subfolder')
         self.assertEqual(1, len(the_wpts))
         self.assertEqual('003', the_wpts[0]['id'])
 
@@ -892,8 +938,15 @@ class TestShellUnit(unittest.TestCase):
                   expect_fail=True)
         mock_archive.assert_not_called()
 
-        self._run('waypoint archive --match nothing')
+        self._run('waypoint archive --match nothing',
+                  expect_fail=True)
         mock_archive.assert_not_called()
+
+    @mock.patch.object(FakeClient, 'set_objects_archive')
+    def test_archive_in_folder(self, mock_archive):
+        self._run('waypoint archive --in-folder folder1')
+        mock_archive.assert_called_once_with('waypoint', ['002'],
+                                             True)
 
     def test_waypoint_coords(self):
         out = self._run('waypoint coords wpt1')

@@ -77,7 +77,9 @@ def remove_ops(cmds, objtype):
     remove.add_argument('--dry-run', action='store_true',
                         help=('Do not actually remove anything '
                               '(use with --verbose)'))
-    remove.add_argument('name', help='Name (or ID)', nargs='+')
+    remove.add_argument('--in-folder',
+                        help='Limit to items in this folder')
+    remove.add_argument('name', help='Name (or ID)', nargs='*')
     return remove
 
 
@@ -94,6 +96,8 @@ def move_ops(cmds):
     move.add_argument('--dry-run', action='store_true',
                       help=('Do not actually move anything '
                             '(use with --verbose)'))
+    move.add_argument('--in-folder',
+                      help='Limit to items in this folder')
     move.add_argument('name', help='Name (or ID)', nargs='*')
     move.add_argument('destination',
                       help='Destination folder (or "/" to move to root)')
@@ -136,6 +140,8 @@ def list_and_dump_ops(cmds):
                       help=('Set explicit output format instead of default '
                             'table layout. Use --format=help for '
                             'instructions'))
+    list.add_argument('--in-folder',
+                      help='Limit to items in this folder')
     dump = cmds.add_parser('dump', help='Raw dump of the data structure',
                            description=('Dump the low-level representation of '
                                         'an object on the server '
@@ -170,6 +176,8 @@ def archive_ops(cmds):
         i.add_argument('--dry-run', action='store_true',
                        help=('Do not actually change anything '
                              '(use with --verbose)'))
+        i.add_argument('--in-folder',
+                       help='Limit to items in this folder')
 
 
 def edit_ops(cmds):
@@ -241,6 +249,35 @@ class Command(object):
     def opts(parser):
         pass
 
+    def folder_filter(self, name_or_id):
+        """Return a function that will filter a list of items by folder, or
+        generate all items in a folder.
+
+        This returns a function which, when called with an iterable, will
+        generate results that are inside the specified folder (or all if
+        name_or_id is None). If the iterable is empty, then generate all
+        items (of self.objtype) in the folder.
+        """
+        if name_or_id == '':
+            # An empty string folder id means "at the root" to gaiagps
+            folder_id = ''
+        elif name_or_id is None:
+            # None means no folder was requested
+            folder_id = None
+        else:
+            folder_id = self.get_object(name_or_id, objtype='folder')['id']
+
+        def _folder_filter(items):
+            if not items and folder_id is not None:
+                self.verbose('Generating list of items in folder %r' % (
+                    name_or_id))
+                items = self.client.list_objects(self.objtype)
+            for item in items:
+                if folder_id is None or item['folder'] == folder_id:
+                    yield item
+
+        return _folder_filter
+
     def dispatch(self, parser, args):
         if hasattr(args, 'subcommand') and args.subcommand:
             fn_name = args.subcommand.replace('-', '_')
@@ -310,8 +347,12 @@ class Command(object):
 
     def remove(self, args):
         objtype = self.objtype
-        to_remove = self.find_objects(args.name, match=args.match)
-        for obj in to_remove:
+        try:
+            to_remove = self.find_objects(args.name, match=args.match)
+        except _Safety:
+            to_remove = []
+        folder_filter = self.folder_filter(args.in_folder)
+        for obj in folder_filter(to_remove):
             if objtype == 'folder' and not self._confirm_recursive(args, obj):
                 continue
             self.verbose('Removing %s %r (%s)' % (
@@ -345,15 +386,17 @@ class Command(object):
             to_move = self.find_objects(args.name, match=args.match,
                                         date_range=args.match_date)
         except _Safety:
-            print('Specify name(s) of objects to move or filter criteria')
-            return 1
+            to_move = []
+
+        folder_filter = self.folder_filter(args.in_folder)
+        to_move = list(folder_filter(to_move))
 
         if not to_move:
             self.verbose('No items matched criteria')
-            return
+            return 1
 
         if args.destination == '/':
-            for obj in to_move:
+            for obj in folder_filter(to_move):
                 if obj['folder']:
                     self.verbose('Moving %s %r (%s) to /' % (
                         objtype, obj['title'], obj['id']))
@@ -366,7 +409,7 @@ class Command(object):
         else:
             folder = self.get_object(args.destination,
                                      objtype='folder')
-            for obj in to_move:
+            for obj in folder_filter(to_move):
                 self.verbose('Moving %s %r (%s) to %s' % (
                     objtype, obj['title'], obj['id'],
                     folder['properties']['name']))
@@ -431,6 +474,8 @@ class Command(object):
             print(os.linesep.join(msg))
             return 0
 
+        folder_filter = self.folder_filter(args.in_folder)
+
         if args.by_id:
             return self.idlist(args)
 
@@ -461,7 +506,7 @@ class Command(object):
         def sortkey(i):
             return i['folder_name'] + ' ' + i['title']
 
-        for item in sorted(items, key=sortkey):
+        for item in sorted(folder_filter(items), key=sortkey):
             if args.match and not re.search(args.match, item['title']):
                 continue
             if args.match_date and not self._match_date(item, args.match_date):
@@ -497,12 +542,14 @@ class Command(object):
             to_hit = self.find_objects(args.name, match=args.match,
                                        date_range=args.match_date)
         except _Safety:
-            print('Specify name(s) of objects to archive or filter criteria')
-            return 1
+            to_hit = []
+
+        folder_filter = self.folder_filter(args.in_folder)
+        to_hit = list(folder_filter(to_hit))
 
         if not to_hit:
             self.verbose('No items matched criteria')
-            return
+            return 1
 
         for item in to_hit:
             op = archive and 'Archiving' or 'Unarchiving'
@@ -720,26 +767,16 @@ class Command(object):
                                  'server rejected changes') % (i, title))
 
     def _edit(self, args, editable):
-        if args.in_folder:
-            folder = self.get_object(args.in_folder, objtype='folder')
-        else:
-            folder = None
+        folder_filter = self.folder_filter(args.in_folder)
 
         log = logging.getLogger('shell_edit')
         try:
             objs = self.find_objects(args.name, match=args.match)
         except _Safety:
-            if folder:
-                objs = [o for o in self.client.list_objects(self.objtype)
-                        if o['folder'] == folder['id']]
-            else:
-                objs = []
+            objs = []
 
         # Make sure we get a stable sort order across GET/PUT
-        objs = sorted(objs, key=lambda o: o['id'])
-        if folder:
-            objs = [obj for obj in objs if obj['folder'] == folder['id']]
-            log.debug('Limiting to folder %s: %s' % (folder['id'], len(objs)))
+        objs = sorted(list(folder_filter(objs)), key=lambda o: o['id'])
 
         if not objs:
             print('No objects matched criteria.')
