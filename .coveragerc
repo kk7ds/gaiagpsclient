@@ -1,2 +1,4 @@
 [run]
-omit = gaiagps/tests/*
+omit =
+  gaiagps/tests/*
+  gaiagps/shell/__main__.py

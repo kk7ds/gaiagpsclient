@@ -776,8 +776,8 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('items but matched', out)
 
-    @mock.patch('gaiagps.shell.Waypoint._dump_for_edit')
-    @mock.patch('gaiagps.shell.Waypoint._load_for_edit')
+    @mock.patch('gaiagps.shell.waypoint.Waypoint._dump_for_edit')
+    @mock.patch('gaiagps.shell.waypoint.Waypoint._load_for_edit')
     @mock.patch('subprocess.call')
     @mock.patch('os.path.getmtime')
     @mock.patch('gaiagps.util.get_editor')
@@ -816,7 +816,7 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('No objects matched criteria',  out)
 
-    @mock.patch('gaiagps.shell.Waypoint._dump_for_edit')
+    @mock.patch('gaiagps.shell.waypoint.Waypoint._dump_for_edit')
     def test_edit_waypoint_in_folder(self, mock_dump):
         the_wpts = []
 

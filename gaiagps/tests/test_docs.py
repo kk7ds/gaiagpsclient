@@ -24,7 +24,7 @@ class TestDocSnippetsUnit(unittest.TestCase):
             name)                                        # /doc/source/$name
 
     @mock.patch('gaiagps.apiclient.GaiaClient')
-    @mock.patch('gaiagps.shell.Command.dispatch')
+    @mock.patch('gaiagps.shell.command.Command.dispatch')
     @mock.patch('sys.stdin.fileno')
     def _test_invocation(self, location, command, mock_fileno, mock_dispatch,
                          mock_client):
