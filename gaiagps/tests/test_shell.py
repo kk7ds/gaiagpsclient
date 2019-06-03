@@ -53,6 +53,20 @@ class FakeClient(object):
             }]},
         {'id': '202', 'folder': '102', 'title': 'trk2'},
     ]
+    PHOTOS = [
+        {'id': '301', 'title': 'pho1',
+         'properties': {
+             'fullsize_url': 'https://foo.com/photo1/full',
+             'scaled_url': 'https://foo.com/photo1/scaled',
+             'thumbnail': 'https://foo.com/photo1/thumbnail',
+         }},
+        {'id': '302', 'title': 'pho2',
+         'properties': {
+             'fullsize_url': 'https://foo.com/photo2/full',
+             'scaled_url': 'https://foo.com/photo2/scaled',
+             'thumbnail': 'https://foo.com/photo2/thumbnail',
+         }},
+    ]
 
     s = None
 
@@ -73,6 +87,8 @@ class FakeClient(object):
             return add_props(self.WAYPOINTS)
         elif objtype == 'track':
             return add_props(self.TRACKS)
+        elif objtype == 'photo':
+            return self.PHOTOS
         elif objtype == 'folder':
             r = []
             for f in self.FOLDERS:
@@ -158,6 +174,10 @@ class FakeClient(object):
 
     def test_auth(self):
         raise NotImplementedError('Mock me')
+
+    def get_photo(self, photoid, size='fullsize'):
+        photo = [x for x in self.PHOTOS if x['id'] == photoid][0]
+        return ('image/jpeg', b'photodatafor%s' % photo['title'].encode())
 
 
 @contextlib.contextmanager
@@ -1433,6 +1453,35 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('No matching objects', out)
         mock_put.assert_not_called()
+
+    @mock.patch('builtins.open')
+    def test_photo_export(self, mock_open):
+        real_exists = os.path.exists
+
+        def fake_exists(f):
+            if f == 'pho2.jpg':
+                return True
+            else:
+                return real_exists(f)
+
+        with mock.patch('os.path.exists', new=fake_exists):
+
+            out = self._run('--verbose photo export --dry-run pho1')
+            self.assertIn('Would download', out)
+            mock_open.assert_not_called()
+
+            out = self._run('--verbose photo export pho1 pho2')
+            self.assertIn('Wrote \'pho1.jpg\'', out)
+            self.assertIn('File \'pho2.jpg\' already exists', out)
+            mock_open.assert_called_once_with('pho1.jpg', 'wb')
+            mock_file = mock_open.return_value.__enter__.return_value
+            mock_file.write.assert_called_once_with(b'photodataforpho1')
+
+        out = self._run('--verbose photo export --match pho3',
+                        expect_fail=True)
+
+        out = self._run('--verbose photo export --match',
+                        expect_fail=True)
 
 
 class TestShellFunctional(test_apiclient.BaseClientFunctional):

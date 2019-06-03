@@ -165,7 +165,7 @@ class GaiaClient(object):
         :returns: A list of objects
         :rtype: `list`
         """
-        assert objtype in ('folder', 'track', 'waypoint')
+        assert objtype in ('folder', 'track', 'waypoint', 'photo')
 
         r = self.s.get(gurl('api', 'objects', objtype),
                        params={
@@ -302,7 +302,7 @@ class GaiaClient(object):
         :rtype: `dict`
         """
 
-        assert objtype in ('waypoint', 'track', 'folder')
+        assert objtype in ('waypoint', 'track', 'folder', 'photo')
 
         folders = self.list_objects('folder')
         folder = find(folders, 'id', folderid)
@@ -333,7 +333,7 @@ class GaiaClient(object):
         :rtype: `dict`
         """
 
-        assert objtype in ('waypoint', 'track', 'folder')
+        assert objtype in ('waypoint', 'track', 'folder', 'photo')
 
         folders = self.list_objects('folder')
         folder = find(folders, 'id', folderid)
@@ -393,9 +393,37 @@ class GaiaClient(object):
         :type archive: bool
         :returns: ``True`` on success, ``False`` otherwise
         :rtype: `bool`
+        :raises RuntimeError: if the server refused to provide the image
+        :raises NotFound: if the server reports the image does not exist
         """
         r = self.s.put(gurl('api', 'objects', objtype),
                        json={'deleted': archive,
                              objtype: ids})
         _logresp(r)
         return r.status_code == 200
+
+    def get_photo(self, photoid, size='fullsize'):
+        """Get the image contents of a photo by id.
+
+        :param photoid: The id of the photo
+        :type photoid: str
+        :param size: The size of the image (one of ``fullsize``, ``scaled``,
+                     or ``thumbnail``.
+        :type size: str
+        :returns: A tuple of content-type and the bytes content of the photo
+        :rtype: `tuple` (`str`, `bytes`)
+        """
+        assert size in ('fullsize', 'thumbnail', 'scaled')
+
+        photo = self.get_object('photo', id_=photoid)
+        url = photo['properties']['%s_url' % size]
+        r = self.s.get(url)
+        if r.status_code != 200:
+            LOG.debug('Attempt to fetch %r returned %i: %s' % (url,
+                                                               r.status_code,
+                                                               r.reason))
+            raise RuntimeError('Server did not return image')
+        content_type = r.headers['Content-Type']
+        LOG.debug('Photo headers: %s' % r.headers)
+
+        return content_type, r.content

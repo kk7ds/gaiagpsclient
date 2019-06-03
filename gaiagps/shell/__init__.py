@@ -9,6 +9,7 @@ import traceback
 
 from gaiagps import apiclient
 from gaiagps.shell import command
+from gaiagps.shell import photo
 from gaiagps.shell import upload
 from gaiagps.shell import track
 from gaiagps.shell import folder
@@ -46,7 +47,8 @@ def main(args=None):
     cmds = parser.add_subparsers(dest='cmd')
 
     command_classes = [waypoint.Waypoint, folder.Folder, command.Test,
-                       command.Tree, track.Track, upload.Upload]
+                       command.Tree, track.Track, upload.Upload,
+                       photo.Photo]
     commands = {}
 
     if 'GAIAGPSCLIENTDEV' in os.environ:

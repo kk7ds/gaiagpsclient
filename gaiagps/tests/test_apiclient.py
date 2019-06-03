@@ -326,6 +326,34 @@ class TestClientUnit(unittest.TestCase):
             json={'deleted': True,
                   'waypoint': ['1', '2']})
 
+    def test_get_photo(self):
+        api = self.get_api()
+        self.requests.get.return_value.status_code = 200
+        self.requests.get.return_value.headers = {'Content-Type': 'image/jpeg'}
+        with mock.patch.object(api, 'get_object') as mock_get:
+            mock_get.return_value = {'properties': {
+                'fullsize_url': 'https://foo.com/bar',
+            }}
+            ctype, content = api.get_photo('photo1')
+        self.assertEqual('image/jpeg', ctype)
+        self.assertEqual(self.requests.get.return_value.content, content)
+        self.requests.get.assert_called_once_with('https://foo.com/bar')
+
+    def test_get_photo_errors(self):
+        api = self.get_api()
+
+        with mock.patch.object(api, 'get_object') as mock_get:
+            mock_get.side_effect = apiclient.NotFound
+            self.assertRaises(apiclient.NotFound,
+                              api.get_photo, 'missing')
+            mock_get.assert_called_once_with('photo', id_='missing')
+
+        with mock.patch.object(api, 'get_object') as mock_get:
+            mock_get.return_value = {'properties': {'fullsize_url': 'foo'}}
+            self.requests.get.return_value.status_code = 500
+            self.assertRaises(RuntimeError,
+                              api.get_photo, 'error')
+
 
 class BaseClientFunctional(unittest.TestCase):
     @classmethod
