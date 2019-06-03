@@ -8,7 +8,11 @@ import sys
 import traceback
 
 from gaiagps import apiclient
-from gaiagps.shell import command, waypoint, track, folder, upload
+from gaiagps.shell import command
+from gaiagps.shell import upload
+from gaiagps.shell import track
+from gaiagps.shell import folder
+from gaiagps.shell import waypoint
 
 
 @contextlib.contextmanager
