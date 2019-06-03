@@ -1,3 +1,5 @@
+import prettytable
+
 from gaiagps.shell import command
 from gaiagps.shell import options
 from gaiagps import util
@@ -21,6 +23,11 @@ class Folder(command.Command):
         remove = options.remove_ops(cmds, 'folder')
         remove.add_argument('--force', action='store_true',
                             help='Remove even if not empty')
+        access = cmds.add_parser('access', help='Manage access (sharing)')
+        access.add_argument('--list', action='store_true',
+                            help='List information about users with access')
+        access.add_argument('name', help='Name (or ID)')
+
         options.move_ops(cmds)
         options.export_ops(cmds)
         options.list_and_dump_ops(cmds)
@@ -59,3 +66,31 @@ class Folder(command.Command):
 
         if args.dry_run:
             print('Dry run; no action taken')
+
+    def access(self, args):
+        folder = self.get_object(args.name)
+
+        def perm(readwrite, admin):
+            if admin:
+                return 'admin'
+            elif readwrite:
+                return 'read/write'
+            else:
+                return 'readonly'
+
+        if args.list:
+            access = self.client.get_access(folder['id'])
+            invites = self.client.get_invites(folder['id'])
+            table = prettytable.PrettyTable(['User', 'Access'])
+            for grant in access:
+                table.add_row(['%s (%s)' % (grant['user_displayname'],
+                                            grant['user_username']),
+                               perm(grant['write'], grant['admin'])])
+            for invite in invites:
+                table.add_row(['Pending (%s)' % invite['to_email'],
+                               perm(invite['write_access'],
+                                    invite['admin_access'])])
+            print(table)
+        else:
+            print('Specify an access operation')
+            return 1

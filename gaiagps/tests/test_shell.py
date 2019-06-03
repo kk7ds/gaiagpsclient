@@ -179,6 +179,48 @@ class FakeClient(object):
         photo = [x for x in self.PHOTOS if x['id'] == photoid][0]
         return ('image/jpeg', b'photodatafor%s' % photo['title'].encode())
 
+    def get_access(self, folderid):
+        return [{'admin': False,
+                 'archived': False,
+                 'create_date': '2019-06-03T16:42:24.107000',
+                 'folder': 'folder1',
+                 'items_last_updated': '2019-06-02T22:36:11.008000',
+                 'last_updated': '2019-06-03T16:42:24.107000',
+                 'permanently_deleted': False,
+                 'unique_id': '37c3bf74-ee54-4420-8dbc-552b17254efb',
+                 'user_displayname': 'myuser',
+                 'user_username': 'bar@foo.com',
+                 'write': True},
+                {'admin': True,
+                 'archived': False,
+                 'create_date': '2019-06-03T16:42:24.107000',
+                 'folder': 'folder1',
+                 'items_last_updated': '2019-06-02T22:36:11.008000',
+                 'last_updated': '2019-06-03T16:42:24.107000',
+                 'permanently_deleted': False,
+                 'unique_id': '37c3bf74-ee54-4420-8dbc-552b17254efb',
+                 'user_displayname': 'myadmin',
+                 'user_username': 'bardmin@foo.com',
+                 'write': False}]
+
+    def get_invites(self, folderid):
+        return [{'accepted': None,
+                 'admin_access': False,
+                 'expires': '2019-07-03T18:29:50.748834',
+                 'folder': 'folder1',
+                 'folder_id': '101',
+                 'folder_name': 'folder1',
+                 'id': 4567,
+                 'invited_by': 1234,
+                 'message': None,
+                 'responded_at': None,
+                 'sender_name': 'sender',
+                 'sender_username': 'sender@foo.com',
+                 'sent_at': '2019-06-03T18:29:50.748834',
+                 'to_email': 'foo@bar.com',
+                 'to_user': 9800,
+                 'write_access': False}]
+
 
 @contextlib.contextmanager
 def fake_cookiejar():
@@ -1482,6 +1524,15 @@ class TestShellUnit(unittest.TestCase):
 
         out = self._run('--verbose photo export --match',
                         expect_fail=True)
+
+    def test_folder_access(self):
+        self._run('folder access folder1',
+                  expect_fail=True)
+
+        out = self._run('folder access --list folder1')
+        self.assertIn('myuser (bar@foo.com)', out)
+        self.assertIn('Pending (foo@bar.com)', out)
+        self.assertIn('admin', out)
 
 
 class TestShellFunctional(test_apiclient.BaseClientFunctional):

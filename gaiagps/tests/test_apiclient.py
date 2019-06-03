@@ -354,6 +354,24 @@ class TestClientUnit(unittest.TestCase):
             self.assertRaises(RuntimeError,
                               api.get_photo, 'error')
 
+    def test_get_access_invites(self):
+        api = self.get_api()
+
+        self.requests.get.return_value.status_code = 200
+
+        access = api.get_access('foo')
+        self.assertEqual(self.requests.get.return_value.json.return_value,
+                         access)
+        invites = api.get_invites('foo')
+        self.assertEqual(self.requests.get.return_value.json.return_value,
+                         invites)
+
+        self.requests.get.return_value.status_code = 400
+        self.assertRaises(RuntimeError,
+                          api.get_access, 'foo')
+        self.assertRaises(RuntimeError,
+                          api.get_invites, 'foo')
+
 
 class BaseClientFunctional(unittest.TestCase):
     @classmethod

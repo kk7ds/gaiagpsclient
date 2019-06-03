@@ -427,3 +427,39 @@ class GaiaClient(object):
         LOG.debug('Photo headers: %s' % r.headers)
 
         return content_type, r.content
+
+    def get_access(self, folderid):
+        """Get access information for a folder.
+
+        :param folderid: The id of the folder
+        :type folderid: str
+        :returns: A list of API access objects for the folder
+        :rtype: list
+        :raises RuntimeError: if the server refuses to list accesses
+        """
+
+        r = self.s.get(gurl('api', 'objects', 'folder', folderid, 'access'))
+        if r.status_code != 200:
+            LOG.debug('Server refused folder access with %i: %s' % (
+                r.status_code, r.reason))
+            raise RuntimeError('Server refused to list access')
+
+        return r.json()
+
+    def get_invites(self, folderid):
+        """Get invite information for a folder.
+
+        :param folderid: The id of the folder
+        :type folderid: str
+        :returns: A list of API invite objects for the folder
+        :rtype: list
+        :raises RuntimeError: if the server refuses to list invites
+        """
+
+        r = self.s.get(gurl('api', 'objects', 'folder', folderid, 'invite'))
+        if r.status_code != 200:
+            LOG.debug('Server refused folder invites with %i: %s' % (
+                r.status_code, r.reason))
+            raise RuntimeError('Server refused to list invites')
+
+        return r.json()
