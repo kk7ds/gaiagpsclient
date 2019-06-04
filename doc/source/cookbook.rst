@@ -154,3 +154,38 @@ file and then re-process it for track color information:
           need ``--poll`` as well as larger files with long tracks are
           likely to be queued by the server for background processing
           and track colorizing must be done after that is complete.
+
+Combine two folders
+===================
+
+Currently, GaiaGPS does not make it easy to combine two folders
+(i.e. copy all of one folder's contents into another). This is easy
+with gaiagpsclient, moving the waypoints and tracks in separate steps.
+
+For example, we can move all waypoints from one folder into another:
+
+.. prompt:: bash $ auto
+
+  $ gaiagps --verbose waypoint move --in-folder 'Some Extra Items' 'My Trip'
+  Generating list of items in folder 'Some Extra Items'
+  Moving waypoint 'Camp spot?' (86898502-b448-46c2-b592-c12a5676e9af) to My Trip
+  Moving waypoint 'Nice camp spot' (51280d87-b16d-41f6-9ba4-9e465618ad2f) to My Trip
+  Moving waypoint 'Flat camping off road a ways' (2dce8501-9a34-4898-bf2a-141c1caea277) to My Trip
+  Moving waypoint 'Camp spots' (a8047fb7-60fa-42ea-8531-b66e78e9774c) to My Trip
+  Moving waypoint 'Good camp spot near here' (8c262804-28fe-443b-842a-5fc4db91d924) to My Trip
+  Moving waypoint 'Road spur blocked' (ddb24ec2-a5e5-4ef9-9056-3e658d4c838e) to My Trip
+
+After that, we can move the tracks as well:
+
+.. prompt:: bash $ auto
+
+  $ gaiagps --verbose track move --in-folder 'Some Extra Items' 'My Trip'
+  Generating list of items in folder 'Some Extra Items'
+  Moving track 'Path to campsite' (86898502-b448-46c2-b592-c12a5676e9af) to My Trip
+
+Finally, we can (if desired) remove the original, now-empty folder:
+
+.. prompt:: bash $ auto
+
+  $ gaiagps folder remove 'Some Extra Items'
+  Removing folder 'Some Extra Items' (7eb228e1-43a3-47bd-8641-1c4184eef269)
