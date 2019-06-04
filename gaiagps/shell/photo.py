@@ -1,8 +1,10 @@
 import os
 import pathvalidate
+import time
 
 from gaiagps.shell import command
 from gaiagps.shell import options
+from gaiagps import util
 
 type_to_extension = {
     'image/jpeg': 'jpg',
@@ -59,6 +61,8 @@ class Photo(command.Command):
             if args.dry_run:
                 self.verbose('Would download %r' % photo['title'])
             else:
+                ds = util.date_parse(photo)
+                ts = time.mktime(ds.timetuple())
                 content_type, content = self.client.get_photo(photo['id'])
                 extension = type_to_extension.get(content_type, 'dat')
                 filename = '%s.%s' % (
@@ -68,4 +72,5 @@ class Photo(command.Command):
                     continue
                 with open(filename, 'wb') as f:
                     f.write(content)
+                os.utime(filename, (ts, ts))
                 self.verbose('Wrote %r' % filename)

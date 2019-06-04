@@ -1,11 +1,13 @@
 import contextlib
 import copy
+import datetime
 import io
 import mock
 import os
 import pprint
 import shlex
 import tempfile
+import time
 import unittest
 
 from gaiagps import apiclient
@@ -55,6 +57,7 @@ class FakeClient(object):
     ]
     PHOTOS = [
         {'id': '301', 'title': 'pho1',
+         'time_created': '2019-05-26T21:02:34Z',
          'properties': {
              'fullsize_url': 'https://foo.com/photo1/full',
              'scaled_url': 'https://foo.com/photo1/scaled',
@@ -1496,8 +1499,15 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('No matching objects', out)
         mock_put.assert_not_called()
 
+    @mock.patch('gaiagps.util.date_parse')
+    @mock.patch('os.utime')
     @mock.patch('builtins.open')
-    def test_photo_export(self, mock_open):
+    def test_photo_export(self, mock_open, mock_utime, mock_dp):
+        # This is mocked because the date libs open timezone definitions
+        # and such, which is not compatible with our mocking of open()
+        mock_dp.return_value = datetime.datetime(2015, 10, 21)
+        expected_ts = time.mktime(mock_dp.return_value.timetuple())
+
         real_exists = os.path.exists
 
         def fake_exists(f):
@@ -1518,6 +1528,8 @@ class TestShellUnit(unittest.TestCase):
             mock_open.assert_called_once_with('pho1.jpg', 'wb')
             mock_file = mock_open.return_value.__enter__.return_value
             mock_file.write.assert_called_once_with(b'photodataforpho1')
+            mock_utime.assert_called_once_with('pho1.jpg',
+                                               (expected_ts, expected_ts))
 
         out = self._run('--verbose photo export --match pho3',
                         expect_fail=True)
