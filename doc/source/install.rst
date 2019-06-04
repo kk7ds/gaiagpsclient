@@ -1,6 +1,13 @@
 Installing gaiagpsclient
 ========================
 
+The home page for the project is on `github`__, but the following recipes
+will be what most people will want.
+
+.. _github: https://github.com/kk7ds/gaiagpsclient
+
+__ github_
+
 Linux
 -----
 

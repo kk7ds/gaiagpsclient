@@ -28,7 +28,7 @@ For complete instructions, see the `installation docs <https://gaiagpsclient.rea
 CLI Usage
 ---------
 
-For more information on usage, see the `full documentation <https://gaiagpsclient.readthedocs.io/en/latest/>`_. Below is a quick introduction to get you started.
+For more information on usage, see the `full documentation <https://gaiagpsclient.readthedocs.io/en/latest/>`_. Below is a quick introduction to get you started. For more common usage recipes, check out the `cookbook <https://gaiagpsclient.readthedocs.io/en/latest/cookbook.html>`_.
 
 The command line client will attempt to login to gaiagps.com only when necessary, caching the session credentials whenever possible. Thus, at least the first use requires your Gaia credentials, and any time after that session expires. After installation, try testing your connection, which will perform a login and validate that communication is possible:
 
