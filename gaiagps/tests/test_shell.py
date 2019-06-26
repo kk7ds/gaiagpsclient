@@ -230,6 +230,12 @@ def fake_cookiejar():
     yield None
 
 
+# This is a fake implementation of util.is_id which relies on our
+# convention here of using three-digit integer strings as IDs
+def fake_is_id(name_or_id):
+    return len(name_or_id) == 3 and name_or_id.isdigit()
+
+
 @mock.patch('gaiagps.shell.cookiejar', new=fake_cookiejar)
 @mock.patch.object(apiclient, 'GaiaClient', new=FakeClient)
 class TestShellUnit(unittest.TestCase):
@@ -1013,9 +1019,23 @@ class TestShellUnit(unittest.TestCase):
         mock_archive.assert_called_once_with('waypoint', ['002'],
                                              True)
 
+    @mock.patch('gaiagps.util.is_id', new=fake_is_id)
     def test_waypoint_coords(self):
         out = self._run('waypoint coords wpt1')
         self.assertEqual('45.500000,-122.000000', out.strip())
+
+        out = self._run('waypoint coords --show-name wpt1')
+        self.assertEqual('45.500000,-122.000000 wpt1', out.strip())
+
+        out = self._run('waypoint coords --show-name --match wpt')
+        self.assertIn('wpt1', out)
+        self.assertIn('wpt2', out)
+
+        self._run('waypoint coords --show-name --match wpt --just-one',
+                  expect_fail=True)
+
+        self._run('waypoint coords',
+                  expect_fail=True)
 
     @mock.patch.object(FakeClient, 'create_object')
     def test_add_folder(self, fake_create):

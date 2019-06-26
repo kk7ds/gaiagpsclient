@@ -40,7 +40,19 @@ class Waypoint(command.Command):
                         help='List available icons')
 
         coords = cmds.add_parser('coords', help='Display coordinates')
-        coords.add_argument('name', help='Name (or ID)')
+        coords.add_argument('name', help='Name (or ID)', nargs='*')
+        coords.add_argument('--match', action='store_true',
+                            help=('Treat names as regular expressions and '
+                                  'include all matches'))
+        coords.add_argument('--in-folder',
+                            help='Limit to items in this folder')
+        coords.add_argument('--just-one', action='store_true',
+                            help=('Fail if more than one match is found '
+                                  '(useful in a script when the output needs '
+                                  'to be asserted as a single lat,lon)'))
+        coords.add_argument('--show-name', action='store_true',
+                            help=('Show the waypoint name after the '
+                                  'coordinates, separated by a single space'))
 
     def list_icons(self, args):
         for alias, filename in util.ICON_ALIASES.items():
@@ -100,9 +112,26 @@ class Waypoint(command.Command):
             print('Dry run; no action taken')
 
     def coords(self, args):
-        wpt = self.get_object(args.name)
-        gc = wpt['geometry']['coordinates']
-        print('%.6f,%.6f' % (gc[1], gc[0]))
+        try:
+            wpts = self.find_objects(args.name, match=args.match)
+        except command._Safety:
+            wpts = []
+
+        folder_filter = self.folder_filter(args.in_folder)
+        wpts = list(folder_filter(wpts))
+
+        if not wpts:
+            raise RuntimeError('No waypoints matched')
+        elif args.just_one and len(wpts) != 1:
+            raise RuntimeError('More than one waypoints matched')
+
+        for wpt in wpts:
+            wpt = self.get_object(wpt['id'])
+            gc = wpt['geometry']['coordinates']
+            output = '%.6f,%.6f' % (gc[1], gc[0])
+            if args.show_name:
+                output += ' %s' % wpt['properties']['title']
+            print(output)
 
     def _rev_match(self, server, local):
         if (server['properties']['revision'] !=
