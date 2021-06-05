@@ -42,8 +42,8 @@ class TestClientUnit(unittest.TestCase):
         self.requests.post.return_value.url = '/something'
         apiclient.GaiaClient('foo', 'bar')
         self.requests.post.assert_called_once_with(
-            apiclient.gurl('login'),
-            data={'username': 'foo', 'password': 'bar', 'next': '/'})
+            apiclient.gurl('register/addDevice'),
+            data={'email': 'foo', 'password': 'bar'})
 
     @mock.patch('gaiagps.apiclient.GaiaClient.test_auth')
     def test_login_failure(self, mock_test_auth):
