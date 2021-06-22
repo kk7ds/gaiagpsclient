@@ -127,7 +127,7 @@ class GaiaClient(object):
         :returns: ``True`` if we are already logged in
         :rtype: `bool`
         """
-        r = self.s.get(gurl('login'))
+        r = self.s.get(gurl('profile'))
         return 'login' not in r.url
 
     def login(self):
@@ -138,10 +138,9 @@ class GaiaClient(object):
 
         :raises AuthFailure: if login is not possible
         """
-        r = self.s.post(gurl('login'),
-                        data={'username': self.username,
-                              'password': self.password,
-                              'next': '/'})
+        r = self.s.post(gurl('register/addDevice'),
+                        data={'email': self.username,
+                              'password': self.password})
         if r.status_code >= 400:
             LOG.debug('Status code from login was %s' % r.status_code)
             raise AuthFailure('Login failed')

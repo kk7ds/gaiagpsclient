@@ -77,13 +77,13 @@ class FakeClient(object):
         pass
 
     def list_objects(self, objtype, archived=True):
-        def add_props(l):
+        def add_props(items):
             return [dict(d,
                          properties=d.get('properties',
                                           {'time_created':
                                            '2019-01-01T02:03:04Z'}),
                          deleted=d.get('deleted', False))
-                    for d in l
+                    for d in items
                     if archived or d.get('deleted', False) is False]
 
         if objtype == 'waypoint':
