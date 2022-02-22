@@ -15,7 +15,7 @@ class Track(command.Command):
     removing, and renaming them.
     """
 
-    _editable_properties = ('color', 'notes', 'public', 'title', 'revision')
+    _editable_properties = ('color', 'notes', 'public', 'title', 'revision', 'activities')
 
     @staticmethod
     def opts(parser):
