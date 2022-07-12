@@ -2,8 +2,7 @@
 gaiagpsclient
 =============
 
-.. image:: https://travis-ci.org/kk7ds/gaiagpsclient.svg?branch=master
-    :target: https://travis-ci.org/kk7ds/gaiagpsclient
+.. image:: https://github.com/kk7ds/gaiagpsclient/actions/workflows/test.yaml/badge.svg
 
 .. image:: https://readthedocs.org/projects/gaiagpsclient/badge/?version=latest
     :target: https://gaiagpsclient.readthedocs.io/en/latest/?badge=latest

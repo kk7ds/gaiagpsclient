@@ -1,0 +1,30 @@
+---
+name: Unit tests
+on:
+  pull_request:
+  push:
+jobs:
+  unit:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install python3-pip
+          python3 -mpip install tox
+      - name: run tests
+        run: tox -eunit
+  style:
+    name: Run style checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install python3-pip python3-flake8
+          sudo pip install tox
+      - name: run checks
+        run: tox -estyle
