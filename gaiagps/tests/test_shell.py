@@ -761,10 +761,13 @@ class TestShellUnit(unittest.TestCase):
         self.assertIn('chemist', preamble)
         mock_put.assert_not_called()
 
+    @mock.patch('gaiagps.util.get_editor')
     @mock.patch.object(FakeClient, 'put_object')
     @mock.patch('builtins.open')
     @mock.patch('yaml.load')
-    def test_edit_waypoint_load(self, mock_load, mock_open, mock_put):
+    def test_edit_waypoint_load(self, mock_load, mock_open, mock_put,
+                                mock_editor):
+        mock_editor.return_value = None
         mock_load.return_value = [{'id': '003',
                                    'properties': {
                                        'icon': 'foo',

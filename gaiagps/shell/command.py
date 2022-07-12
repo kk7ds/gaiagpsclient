@@ -567,7 +567,7 @@ class Command(object):
 
         temp_fn = '%ss.yml' % self.objtype
 
-        if args.interactive:
+        if hasattr(args, 'interactive') and args.interactive:
             self._dump_for_edit(objs, editable, temp_fn)
             orig_mtime = os.path.getmtime(temp_fn)
             subprocess.call([util.get_editor(), temp_fn])
