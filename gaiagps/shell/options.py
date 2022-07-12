@@ -17,14 +17,24 @@ class DateRange(argparse.Action):
         try:
             fmt = '%Y-%m-%d'
             dates = values.split(':', 1)
-            start = datetime.datetime.strptime(dates[0], fmt)
-            if len(dates) > 1:
-                # End was specified
-                end = datetime.datetime.strptime(dates[1], fmt)
+
+            if len(dates) == 1:
+                # Just one date given, assume the whole day
+                start_date = end_date = dates[0]
             else:
-                # No end, so re-parse start so we get another object
-                # we can mutate below
-                end = datetime.datetime.strptime(dates[0], fmt)
+                start_date = dates[0]
+                end_date = dates[1]
+
+            if not start_date:
+                # Assume the epoch is early enough as a lower-bound
+                start_date = '1970-01-01'
+            if not end_date:
+                # Assume a year in the future is late enough as an upper-bound
+                end_date = (datetime.datetime.now() +
+                            datetime.timedelta(days=365)).strftime(fmt)
+
+            start = datetime.datetime.strptime(start_date, fmt)
+            end = datetime.datetime.strptime(end_date, fmt)
 
             # End date is inclusive, so make it 23:59:59
             end = (end +

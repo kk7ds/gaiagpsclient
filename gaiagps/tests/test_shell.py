@@ -312,6 +312,16 @@ class TestShellUnit(unittest.TestCase):
         self.assertNotIn('wpt2', out)
         self.assertIn('wpt3', out)
 
+        out = self._run('waypoint list --match-date 2016-01-01:')
+        self.assertIn('wpt1', out)
+        self.assertIn('wpt2', out)
+        self.assertNotIn('wpt3', out)
+
+        out = self._run('waypoint list --match-date :2016-01-01')
+        self.assertNotIn('wpt1', out)
+        self.assertNotIn('wpt2', out)
+        self.assertIn('wpt3', out)
+
         out = self._run('waypoint list --match-date foo',
                         expect_fail=True)
         out = self._run('waypoint list --match-date 2015-10-21:foo',
