@@ -51,6 +51,7 @@ class FakeClient(object):
                             'color': '#FF0000',
                             'public': False,
                             'revision': 6,
+                            'activities': ['hiking'],
                             'notes': ''},
             }]},
         {'id': '202', 'folder': '102', 'title': 'trk2'},
@@ -567,6 +568,7 @@ class TestShellUnit(unittest.TestCase):
                                            'notes': '',
                                            'public': False,
                                            'title': 'newname',
+                                           'activities': ['hiking', 'camping'],
                                            'revision': 6}}]}]
         out = self._run('track edit trk1 -f tracks.yml')
         self.assertEqual('', out)
@@ -579,6 +581,7 @@ class TestShellUnit(unittest.TestCase):
         expected['title'] = 'newname'
         expected['color'] = '#F42410'
         expected['id'] = obj['id']
+        expected['activities'] = ['hiking', 'camping']
         mock_put.assert_called_once_with('track', expected)
 
     @mock.patch.object(FakeClient, 'put_object')
