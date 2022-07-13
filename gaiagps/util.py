@@ -432,7 +432,7 @@ def is_id(idstr):
     :returns: ``True`` if the string is an identifier, ``False`` otherwise
     :rtype: `bool`
     """
-    return (len(idstr) in (36, 32) and
+    return (len(idstr) in (36, 32, 40) and
             all(c in string.hexdigits + '-' for c in idstr))
 
 

@@ -54,7 +54,8 @@ class TestUtilUnit(unittest.TestCase):
 
     def test_is_id(self):
         ids = ['0b00901f6549abf8a8b7de8b49d24894',
-               '0c94be3d-6fd9-45a0-9ca5-e8fd6969b7d3']
+               '0c94be3d-6fd9-45a0-9ca5-e8fd6969b7d3',
+               '6505ccef3cfffd6229e71f1528650b9edf8bfb47']
         not_ids = ['0b00901f6549abf8a8b7de8b49d2489z',
                    '0c94be3d-6fd9-45a0-9ca5-e8fd6969b7dz',
                    '0b00901f6549abf8a8b7de8b49d2489',
