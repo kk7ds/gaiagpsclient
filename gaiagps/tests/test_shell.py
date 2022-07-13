@@ -324,8 +324,13 @@ class TestShellUnit(unittest.TestCase):
 
         out = self._run('waypoint list --match-date foo',
                         expect_fail=True)
+        self.assertIn('foo\' does not match format', out)
         out = self._run('waypoint list --match-date 2015-10-21:foo',
                         expect_fail=True)
+        self.assertIn('foo\' does not match format', out)
+        out = self._run('waypoint list --match-date foo:2015-10-21',
+                        expect_fail=True)
+        self.assertIn('foo\' does not match format', out)
 
     @mock.patch.object(FakeClient, 'list_objects')
     def test_list_archived_include_logic(self, mock_list):

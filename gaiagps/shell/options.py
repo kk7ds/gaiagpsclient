@@ -42,8 +42,8 @@ class DateRange(argparse.Action):
                    datetime.timedelta(seconds=1))
 
             setattr(namespace, self.dest, (start, end))
-        except ValueError:
-            raise argparse.ArgumentError(self, 'Invalid date format')
+        except ValueError as e:
+            raise argparse.ArgumentError(self, 'Invalid date: %s' % e)
 
 
 class FuzzyBoolean(argparse.Action):
