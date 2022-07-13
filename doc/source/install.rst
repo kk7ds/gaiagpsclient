@@ -18,20 +18,16 @@ Ubuntu/Debian
 
 .. prompt:: bash
 
-  apt-get install -y python3-pip git
-  git clone https://github.com/kk7ds/gaiagpsclient
-  cd gaiagpsclient
-  sudo python3 setup.py install
+  sudo apt-get install -y python3-pip git
+  sudo python3 -mpip install git+https://github.com/kk7ds/gaiagpsclient
 
 Fedora/Red Hat
 ~~~~~~~~~~~~~~
 
 .. prompt:: bash
 
-  dnf -y install python3-pip git
-  git clone https://github.com/kk7ds/gaiagpsclient
-  cd gaiagpsclient
-  sudo python3 setup.py install
+  sudo dnf -y install python3-pip git
+  sudo python3 -mpip install git+https://github.com/kk7ds/gaiagpsclient
 
 macOS
 -----
@@ -41,9 +37,7 @@ On a Mac, homebrew_ is required. Install it first with the instructions on `thei
 .. prompt:: bash
 
   brew install python3 git
-  git clone https://github.com/kk7ds/gaiagpsclient
-  cd gaiagpsclient
-  python3 setup.py install
+  sudo python3 -mpip install git+https://github.com/kk7ds/gaiagpsclient
 
 .. _homebrew: https://brew.sh
 

@@ -20,9 +20,7 @@ For complete instructions, see the `installation docs <https://gaiagpsclient.rea
 
 .. code-block:: shell
 
-  $ git clone https://github.com/kk7ds/gaiagpsclient
-  $ cd gaiagpsclient
-  $ python3 setup.py install
+  $ sudo python3 -mpip install git+https://github.com/kk7ds/gaiagpsclient
 
 CLI Usage
 ---------
