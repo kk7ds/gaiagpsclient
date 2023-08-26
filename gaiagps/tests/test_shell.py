@@ -228,7 +228,7 @@ class FakeClient(object):
 
 @contextlib.contextmanager
 def fake_cookiejar():
-    yield None
+    yield mock.MagicMock()
 
 
 # This is a fake implementation of util.is_id which relies on our
@@ -1317,6 +1317,18 @@ class TestShellUnit(unittest.TestCase):
                         expect_fail=True)
         self.assertIn('Unable to access Gaia', out)
 
+    @mock.patch.object(FakeClient, '__init__')
+    def test_client_sessionid(self, mock_init):
+        mock_init.return_value = None
+        with mock.patch.object(FakeClient, 'test_auth'):
+            self._run('--sessionid foo test')
+        jar = mock_init.call_args_list[0][1]['cookies']
+        jar.set_cookie.assert_called()
+        cookie = jar.set_cookie.call_args_list[0][0][0]
+        self.assertEqual('gaiagps.com', cookie.domain)
+        self.assertEqual('sessionid', cookie.name)
+        self.assertEqual('foo', cookie.value)
+
     @mock.patch('getpass.getpass')
     @mock.patch('os.isatty')
     @mock.patch.object(FakeClient, '__init__')
@@ -1329,7 +1341,7 @@ class TestShellUnit(unittest.TestCase):
         mock_getpass.assert_called_once_with()
         mock_client.assert_called_once_with('foo@bar.com',
                                             mock.sentinel.password,
-                                            cookies=None)
+                                            cookies=mock.ANY)
 
     def test_show_waypoint(self):
         out = self._run('waypoint show wpt3')
