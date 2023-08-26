@@ -4,6 +4,7 @@ import getpass
 import http.cookiejar
 import logging
 import os
+import requests
 import sys
 import traceback
 
@@ -25,12 +26,12 @@ def cookiejar():
 
     jar = http.cookiejar.LWPCookieJar(cookiepath)
     if os.path.exists(cookiepath):
-        jar.load()
+        jar.load(ignore_discard=True)
 
     try:
         yield jar
     finally:
-        jar.save()
+        jar.save(ignore_discard=True)
 
 
 def main(args=None):
@@ -39,6 +40,8 @@ def main(args=None):
     parser.add_argument('--user', help='Gaia username')
     parser.add_argument('--pass', metavar='PASS', dest='pass_',
                         help='Gaia password (prompt if unspecified)', )
+    parser.add_argument('--sessionid',
+                        help='Manually set the sessionid cookie value')
     parser.add_argument('--debug', help='Enable debug output',
                         action='store_true')
     parser.add_argument('--verbose', help='Enable verbose output',
@@ -90,6 +93,11 @@ def main(args=None):
             args.pass_ = getpass.getpass()
 
         with cookiejar() as cookies:
+            if args.sessionid:
+                cookies.set_cookie(requests.cookies.create_cookie(
+                    domain='gaiagps.com', name='sessionid',
+                    value=args.sessionid))
+
             try:
                 client = apiclient.GaiaClient(args.user, args.pass_,
                                               cookies=cookies)

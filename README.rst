@@ -27,15 +27,14 @@ CLI Usage
 
 For more information on usage, see the `full documentation <https://gaiagpsclient.readthedocs.io/en/latest/>`_. Below is a quick introduction to get you started. For more common usage recipes, check out the `cookbook <https://gaiagpsclient.readthedocs.io/en/latest/cookbook.html>`_.
 
-The command line client will attempt to login to gaiagps.com only when necessary, caching the session credentials whenever possible. Thus, at least the first use requires your Gaia credentials, and any time after that session expires. After installation, try testing your connection, which will perform a login and validate that communication is possible:
+As of 2023, the only way to authenticate the client to gaiagps is to login with the browser and extract a sessionid cookie. Use a browser extension or the development tools to copy the sessionid cookie value from a logged-in session. Pass that to the command-line tool like this:
 
 .. code-block:: shell
 
-  $ gaiagps --user user@domain.com test
-  Password:
+  $ gaiagps --sessionid asd9sdjd8errr4n8ssff35sff test
   Success!
 
-After that, you can perform commands without providing your username or password.
+If you see the "Success!" message then you are logged in. Once the session with gaiagps expires, you will need to repeat the procedure.
 
 The available high-level commands are displayed with ``--help``::
 
