@@ -1,6 +1,7 @@
 import http.cookiejar
 import mock
 import os
+import requests
 import tempfile
 import unittest
 
@@ -124,6 +125,20 @@ class TestClientUnit(unittest.TestCase):
         self.requests.post.assert_called_once_with(
             apiclient.gurl('api', 'objects', 'waypoint'),
             json={'name': 'foo'})
+
+    @mock.patch('gaiagps.apiclient.GaiaClient.test_auth')
+    def test_create_object_uses_csrf_header(self, mock_test_auth):
+        mock_test_auth.return_value = True
+        cookies = http.cookiejar.LWPCookieJar()
+        cookies.set_cookie(requests.cookies.create_cookie(
+            name='csrftoken', value='csrf-token', domain='gaiagps.com'))
+
+        api = apiclient.GaiaClient('username', 'password', cookies=cookies)
+        api.create_object('waypoint', {'name': 'foo'})
+        self.requests.post.assert_called_once_with(
+            apiclient.gurl('api', 'objects', 'waypoint'),
+            json={'name': 'foo'},
+            headers={'X-CSRFToken': 'csrf-token'})
 
     def test_put_object(self):
         api = self.get_api()
