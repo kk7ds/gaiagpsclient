@@ -12,8 +12,7 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install python3-pip
-          python3 -mpip install tox
+          sudo apt-get install tox
       - name: run tests
         run: tox -eunit
   style:
@@ -24,7 +23,6 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install python3-pip python3-flake8
-          sudo pip install tox
+          sudo apt-get install tox
       - name: run checks
         run: tox -estyle
