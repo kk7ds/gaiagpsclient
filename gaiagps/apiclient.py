@@ -130,6 +130,18 @@ class GaiaClient(object):
         r = self.s.get(gurl('profile'))
         return 'login' not in r.url
 
+    def csrf_headers(self):
+        """Return the CSRF header required by Gaia write endpoints."""
+        for cookie in self.s.cookies:
+            if cookie.name == 'csrftoken' and cookie.value:
+                return {'X-CSRFToken': cookie.value}
+        return {}
+
+    def _write_kwargs(self):
+        """Return request kwargs for an authenticated write operation."""
+        headers = self.csrf_headers()
+        return {'headers': headers} if headers else {}
+
     def login(self):
         """Login with our credentials.
 
@@ -248,7 +260,8 @@ class GaiaClient(object):
         :rtype: `dict`
         """
         LOG.debug('Creating %s: %s' % (objtype, pprint.pformat(objdata)))
-        r = self.s.post(gurl('api', 'objects', objtype), json=objdata)
+        r = self.s.post(gurl('api', 'objects', objtype), json=objdata,
+                        **self._write_kwargs())
         _logresp(r)
         if r:
             obj = r.json()
@@ -270,7 +283,7 @@ class GaiaClient(object):
         LOG.debug('Putting %s/%s: %s' % (objtype, objdata['id'],
                                          pprint.pformat(objdata)))
         r = self.s.put(gurl('api', 'objects', objtype, objdata['id']),
-                       json=objdata)
+                       json=objdata, **self._write_kwargs())
         _logresp(r)
         if r.status_code <= 201:
             return r.json()
@@ -285,7 +298,8 @@ class GaiaClient(object):
         :param id_: The id of the object to delete
         :type id_: str
         """
-        r = self.s.delete(gurl('api', 'objects', objtype, id_))
+        r = self.s.delete(gurl('api', 'objects', objtype, id_),
+                          **self._write_kwargs())
         _logresp(r)
 
     def add_object_to_folder(self, folderid, objtype, objid):
@@ -364,6 +378,7 @@ class GaiaClient(object):
         name = os.path.basename(filename)
         r = self.s.post(gurl('upload'), files=files,
                         data={'name': name},
+                        **self._write_kwargs(),
                         allow_redirects=True)
         _logresp(r)
         if b'File uploaded to queue' in r.content:
@@ -397,7 +412,7 @@ class GaiaClient(object):
         """
         r = self.s.put(gurl('api', 'objects', objtype),
                        json={'deleted': archive,
-                             objtype: ids})
+                             objtype: ids}, **self._write_kwargs())
         _logresp(r)
         return r.status_code == 200
 
